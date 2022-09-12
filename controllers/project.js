@@ -54,6 +54,60 @@ const createProject = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get user's all projects by Clients
+// @route   GET /project/byClients
+// @access  Private
+const getProjectsByClients = asyncHandler(async (req, res) => {
+  try {
+    const clients = await Project.aggregate([
+      [
+        {
+          $match: {},
+        },
+        {
+          $group: {
+            _id: "$client",
+            projects: {
+              $push: {
+                _id: "$_id",
+                name: "$name",
+              },
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "clients",
+            localField: "_id",
+            foreignField: "_id",
+            as: "client",
+          },
+        },
+        {
+          $unwind: {
+            path: "$client",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            projects: 1,
+            name: "$client.name",
+          },
+        },
+      ],
+    ]);
+
+    res.status(200).json({
+      status: "Successfully fetched projects",
+      data: clients ? clients : [],
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
 // @desc    Get user's all projects
 // @route   GET /project
 // @access  Private
@@ -314,6 +368,7 @@ const removeMember = asyncHandler(async (req, res) => {
 export {
   createProject,
   getProjects, //(for app)
+  getProjectsByClients, //(for website)
   deleteProjectById,
   editProjectById,
   getProjectById,

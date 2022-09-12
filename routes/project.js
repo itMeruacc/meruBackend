@@ -3,6 +3,7 @@ import { authPass } from "../middleware/authMiddleware.js";
 import {
   createProject,
   getProjects,
+  getProjectsByClients,
   deleteProjectById,
   editProjectById,
   getProjectById,
@@ -16,6 +17,9 @@ const router = express.Router();
 
 // create and get all
 router.route("/").post(authPass, createProject).get(authPass, getProjects);
+
+// get projects group by clients(including null)
+router.route("/byClients").get(authPass, getProjectsByClients);
 
 // get, del and edit by id
 router
