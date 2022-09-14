@@ -18,11 +18,11 @@ const projectSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     activities: [{ type: mongoose.Schema.Types.ObjectId, ref: "Activity" }],
     budget: {
-      type: Array,
-      default: [
-        { k: "time", v: "0D" },
-        { k: "money", v: "0$" },
-      ],
+      time: { type: String, default: "0W" },
+      money: {
+        type: String,
+        default: "0$",
+      },
     },
   },
   { timestamps: true }

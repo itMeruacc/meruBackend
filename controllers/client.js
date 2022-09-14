@@ -21,6 +21,7 @@ const createClient = asyncHandler(async (req, res) => {
   try {
     const user = req.user;
     let { name } = req.body;
+
     // check for unique entry
     const uni = await uniqueFinder(name, Client);
     if (!uni) {
@@ -198,14 +199,43 @@ const getClients = asyncHandler(async (req, res) => {
 const getClientById = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
-    const client = await Client.findById(id).populate("projects");
-    if (!client) {
+    const client = await Client.aggregate([
+      {
+        $match: { _id: mongoose.Types.ObjectId(id) },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "createdBy",
+          foreignField: "_id",
+          as: "createdBy",
+        },
+      },
+      {
+        $unwind: {
+          path: "$createdBy",
+          includeArrayIndex: "string",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          "createdBy.name": {
+            $concat: ["$createdBy.firstName", " ", "$createdBy.lastName"],
+          },
+          "createdBy._id": 1,
+          createdAt: 1,
+        },
+      },
+    ]);
+    if (!client.length) {
       res.status(404);
       throw new Error("Client not found");
     }
     res.status(200).json({
       status: "Successfully fetched client",
-      data: client,
+      data: client[0],
     });
   } catch (error) {
     throw new Error(error);

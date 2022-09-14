@@ -147,14 +147,64 @@ const getProjects = asyncHandler(async (req, res) => {
 const getProjectById = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
-    const project = await Project.findById(id);
-    if (!project) {
+    const project = await Project.aggregate([
+      {
+        $match: { _id: mongoose.Types.ObjectId(id) },
+      },
+      {
+        $lookup: {
+          from: "clients",
+          localField: "client",
+          foreignField: "_id",
+          as: "client",
+        },
+      },
+      {
+        $unwind: {
+          path: "$client",
+          includeArrayIndex: "string",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "projectLeader",
+          foreignField: "_id",
+          as: "projectLeader",
+        },
+      },
+      {
+        $unwind: {
+          path: "$projectLeader",
+          includeArrayIndex: "string",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          budget: 1,
+          "projectLeader.name": {
+            $concat: [
+              "$projectLeader.firstName",
+              " ",
+              "$projectLeader.lastName",
+            ],
+          },
+          "projectLeader._id": 1,
+          "client.name": 1,
+          "client._i": 1,
+        },
+      },
+    ]);
+    if (!project.length) {
       res.status(404);
       throw new Error(`No project found ${id}`);
     }
     res.status(200).json({
       status: "Successfully fetched project",
-      data: project,
+      data: project[0],
     });
   } catch (error) {
     throw new Error(error);
