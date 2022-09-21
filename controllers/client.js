@@ -4,6 +4,7 @@ import asyncHandler from "express-async-handler";
 import Client from "../models/client.js";
 import Project from "../models/project.js";
 import User from "../models/user.js";
+import Activity from "../models/activity.js";
 // Utils
 import { AccessControl } from "accesscontrol";
 import { grantsObject } from "../utils/permissions.js";
@@ -17,26 +18,24 @@ const ac = new AccessControl(grantsObject);
 // @desc    Create a new client
 // @route   POST /client
 // @access  Private
-const createClient = asyncHandler(async (req, res) => {
+const createClient = asyncHandler(async (req, res, next) => {
   try {
     const user = req.user;
     let { name } = req.body;
 
-    // check for unique entry
-    const uni = await uniqueFinder(name, Client);
-    if (!uni) {
-      throw new Error(`Client already exists.`);
-    }
     // Create client with given parameters
     const client = new Client({ name, createdBy: user._id, manager: null });
-    if (!client) throw new Error("Error creating a new client");
-
-    res.status(201).json({
-      status: "Successfully Created Client",
-      data: client,
-    });
+    client
+      .save()
+      .then((client) => {
+        res.status(200).json({
+          status: "Successfully Created Client",
+          data: client,
+        });
+      })
+      .catch((e) => next(e));
   } catch (error) {
-    throw new Error(error);
+    next(error);
   }
 });
 
@@ -297,10 +296,130 @@ const deleteClientById = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get client time id
+// @route   GET /client/getTime/:id
+// @access  Private
+const getClientTimeById = asyncHandler(async (req, res) => {
+  try {
+    const id = req.params.id;
+    // get id to perfrom aggregation on activities
+    const client = await Client.findById(id);
+    if (!client) {
+      res.status(404);
+      throw new Error("Client not found");
+    }
+
+    const clientTime = await Activity.aggregate([
+      {
+        $match: { _id: { $in: client.activities } },
+      },
+      {
+        $facet: {
+          projectTime: [
+            {
+              $lookup: {
+                from: "projects",
+                localField: "project",
+                foreignField: "_id",
+                as: "project",
+              },
+            },
+            {
+              $unwind: {
+                path: "$project",
+                includeArrayIndex: "string",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            {
+              $group: {
+                _id: {
+                  projectId: "$project._id",
+                  name: "$project.name",
+                },
+                internalTime: {
+                  $sum: {
+                    $cond: ["$isInternal", "$consumeTime", 0],
+                  },
+                },
+                externalTime: {
+                  $sum: {
+                    $cond: ["$isInternal", 0, "$consumeTime"],
+                  },
+                },
+                totalTime: {
+                  $sum: "$consumeTime",
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                id: "$_id.projectId",
+                name: "$_id.name",
+                internalTime: 1,
+                externalTime: 1,
+                totalTime: 1,
+              },
+            },
+          ],
+          clientTime: [
+            {
+              $group: {
+                _id: null,
+                internalTime: {
+                  $sum: {
+                    $cond: ["$isInternal", "$consumeTime", 0],
+                  },
+                },
+                externalTime: {
+                  $sum: {
+                    $cond: ["$isInternal", 0, "$consumeTime"],
+                  },
+                },
+                totalTime: {
+                  $sum: "$consumeTime",
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                internalTime: 1,
+                externalTime: 1,
+                totalTime: 1,
+              },
+            },
+          ],
+        },
+      },
+      {
+        $unwind: {
+          path: "$clientTime",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ]);
+
+    const data = {
+      projectTime: clientTime.length ? clientTime[0].projectTime : null,
+      clientTime: clientTime.length ? clientTime[0].clientTime : null,
+    };
+
+    res.status(200).json({
+      status: "Success",
+      data,
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
 export {
   createClient,
   getClients, //for projects page
   getClientById,
   editClientById,
   deleteClientById,
+  getClientTimeById,
 };

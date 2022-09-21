@@ -107,7 +107,6 @@ const createScreenShot = asyncHandler(async (req, res) => {
       }
       activity.screenshots.push(screenshot._id);
       await activity.save();
-      l;
       res.status(201).json({
         status: "Successfully added screenshot",
         screenshot,

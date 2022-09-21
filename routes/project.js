@@ -9,6 +9,7 @@ import {
   getProjectById,
   addMember,
   removeMember,
+  getProjectTimeById,
   // assignProjectLeader,
   // removeProjectLeader,
 } from "../controllers/project.js";
@@ -26,7 +27,10 @@ router
   .route("/:id")
   .get(authPass, getProjectById)
   .delete(authPass, deleteProjectById);
-router.route("/addMember/:id/:editType").patch(authPass, editProjectById);
+router.route("/:id/:editType").patch(authPass, editProjectById);
+
+// get time
+router.route("/getTime/:id").get(authPass, getProjectTimeById);
 
 // edit members by id
 router.route("/addMember/:id").post(authPass, addMember);

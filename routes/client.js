@@ -6,11 +6,15 @@ import {
   deleteClientById,
   editClientById,
   getClients,
+  getClientTimeById,
 } from "../controllers/client.js";
 
 const router = express.Router();
 
 router.route("/").post(authPass, createClient).get(authPass, getClients);
+
+// get time
+router.route("/getTime/:id").get(authPass, getClientTimeById);
 
 router
   .route("/:id")

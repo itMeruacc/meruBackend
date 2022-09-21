@@ -12,12 +12,12 @@ import { authPass } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+router.route("/splitActivity").post(authPass, splitActivity);
+
 router
   .route("/")
   .post(authPass, createActivity)
   .delete(authPass, deleteActivity);
-
-router.route("/splitActivity").post(authPass, splitActivity);
 
 router
   .route("/screenshot")

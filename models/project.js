@@ -18,7 +18,8 @@ const projectSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     activities: [{ type: mongoose.Schema.Types.ObjectId, ref: "Activity" }],
     budget: {
-      time: { type: String, default: "0W" },
+      timePeriod: { type: String, default: "Week" },
+      time: { type: Number, default: 0 },
       money: {
         type: String,
         default: "0$",

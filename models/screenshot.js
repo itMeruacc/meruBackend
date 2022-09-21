@@ -9,7 +9,7 @@ const screenshotSchema = new mongoose.Schema({
   client: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Client",
-    required: true,
+    default: null,
   },
   project: {
     type: mongoose.Schema.Types.ObjectId,

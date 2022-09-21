@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 // models
 import Client from "../models/client.js";
 import Project from "../models/project.js";
+import Activity from "../models/activity.js";
 import User from "../models/user.js";
 import asyncHandler from "express-async-handler";
 
@@ -134,7 +135,7 @@ const getProjects = asyncHandler(async (req, res) => {
 
     res.status(200).json({
       status: "Successfully fetched projects",
-      projects: data ? data.projects : [],
+      data: data ? data.projects : [],
     });
   } catch (error) {
     throw new Error(error);
@@ -217,39 +218,46 @@ const getProjectById = asyncHandler(async (req, res) => {
 const editProjectById = asyncHandler(async (req, res) => {
   try {
     const projectId = req.params.id;
-    let project = await Project.find(projectId);
-    // needed to check what we are editing (diff for client)
     const editType = req.params.editType;
+    // needed to check what we are editing (diff for client)
+    let project = await Project.find({ _id: projectId });
 
-    if (
-      editType === "name" ||
-      editType === "budget" ||
-      editType === "pLeader"
-    ) {
+    if (editType == "name" || editType == "budget" || editType == "pLeader") {
       // simply replace the attributes
-      project = await Project.findByIdAndUpdate(projectId, req.body);
+      project = await Project.findByIdAndUpdate({ _id: projectId }, req.body);
       if (!project) {
         res.status(404);
         throw new Error(`No project found ${projectId}`);
       }
-    } else if (editType === "client") {
+    } else if (editType == "client") {
       let { client } = req.body;
-      // if new pLeader is sent then only run.
-      if (client != project.client) {
-        // pull the project from the client
-        await Client.updateOne(
-          { _id: project.client },
-          { $pull: { projects: mongoose.Types.ObjectId(projectId) } }
-        );
-        // add project to the new client if client is not null
-        if (client) {
+
+      // if same end the request
+      if (client === project.client) {
+        res.status(200).json({
+          status: "Successfully edited project",
+          data: project,
+        });
+      } else {
+        if (client === null) {
+          // pull project from prev client if exists
+          if (project.client) {
+            await Client.updateOne(
+              { _id: project.client },
+              { $pull: { projects: mongoose.Types.ObjectId(projectId) } }
+            );
+          }
+          // change client
+          project = await Project.findByIdAndUpdate(projectId, req.body);
+        } else {
+          // push to the new client
           await Client.updateOne(
             { _id: client },
             { $push: { projects: mongoose.Types.ObjectId(projectId) } }
           );
+          // change client
+          project = await Project.findByIdAndUpdate(projectId, req.body);
         }
-        // replace client in project
-        project = await Project.findByIdAndUpdate(projectId, req.body);
       }
     }
 
@@ -368,6 +376,126 @@ const addMember = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get project time id
+// @route   GET /project/getTime/:id
+// @access  Private
+const getProjectTimeById = asyncHandler(async (req, res) => {
+  try {
+    const id = req.params.id;
+    // get id to perfrom aggregation on activities
+    const project = await Project.findById(id);
+    if (!project) {
+      res.status(404);
+      throw new Error("Project not found");
+    }
+
+    const projectTime = await Activity.aggregate([
+      {
+        $match: { _id: { $in: project.activities } },
+      },
+      {
+        $facet: {
+          employeeTime: [
+            {
+              $lookup: {
+                from: "users",
+                localField: "employee",
+                foreignField: "_id",
+                as: "employee",
+              },
+            },
+            {
+              $unwind: {
+                path: "$employee",
+                includeArrayIndex: "string",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            {
+              $group: {
+                _id: {
+                  employeeId: "$employee._id",
+                  name: {
+                    $concat: ["$employee.firstName", " ", "$employee.lastName"],
+                  },
+                },
+                internalTime: {
+                  $sum: {
+                    $cond: ["$isInternal", "$consumeTime", 0],
+                  },
+                },
+                externalTime: {
+                  $sum: {
+                    $cond: ["$isInternal", 0, "$consumeTime"],
+                  },
+                },
+                totalTIme: {
+                  $sum: "$consumeTime",
+                },
+              },
+            },
+            {
+              $project: {
+                id: "$_id.employeeId",
+                name: "$_id.name",
+                internalTime: 1,
+                externalTime: 1,
+                totalTime: 1,
+              },
+            },
+          ],
+          projectTime: [
+            {
+              $group: {
+                _id: null,
+                internalTime: {
+                  $sum: {
+                    $cond: ["$isInternal", "$consumeTime", 0],
+                  },
+                },
+                externalTime: {
+                  $sum: {
+                    $cond: ["$isInternal", 0, "$consumeTime"],
+                  },
+                },
+                totalTime: {
+                  $sum: "$consumeTime",
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                internalTime: 1,
+                externalTime: 1,
+                totalTime: 1,
+              },
+            },
+          ],
+        },
+      },
+      {
+        $unwind: {
+          path: "$projectTime",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ]);
+
+    const data = {
+      employeeTime: projectTime.length ? projectTime[0].employeeTime : null,
+      projectTime: projectTime.length ? projectTime[0].projectTime : null,
+    };
+
+    res.status(200).json({
+      status: "Success",
+      data,
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
 // @desc    Remove employee from project by id
 // @route   PATCH /project/removeMember/:id
 // @access  Private
@@ -422,6 +550,7 @@ export {
   deleteProjectById,
   editProjectById,
   getProjectById,
+  getProjectTimeById,
   addMember,
   removeMember,
 };
