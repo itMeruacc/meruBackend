@@ -7,10 +7,15 @@ import {
   editEmployee,
   getEmployeeList,
   getEmployeeDetails,
+  getDashboardData,
 } from "../controllers/employee.js";
 
 const router = express.Router();
 
+// get dashboard data
+router.route("/dashboard/all").get(authPass, getDashboardData);
+
+// employee by id
 router.route("/:id").get(getEmployeeById).delete(managerPass, deleteEmployee);
 
 // router.route("/allEmployees").post(authPass, getAllEmployee);

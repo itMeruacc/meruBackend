@@ -301,7 +301,6 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 // @desc    Edit a employee
 // @route   PATCH /edit/:id
 // @access  Private
-
 const editEmployee = asyncHandler(async (req, res) => {
   // console.log("Inside Route");
   const permission = ac.can(req.user.role).updateOwn("members");
@@ -326,10 +325,208 @@ const editEmployee = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get dashboard data
+// @route   GET /dashboard
+// @access  Private
+const getDashboardData = asyncHandler(async (req, res, next) => {
+  try {
+    const users = await User.aggregate([
+      {
+        $match: {
+          activities: {
+            $exists: "true",
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "activities",
+          let: {
+            actIds: "$activities",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    {
+                      $in: ["$_id", "$$actIds"],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $addFields: {
+                week: {
+                  $week: "$activityOn",
+                },
+                month: {
+                  $month: "$activityOn",
+                },
+                year: {
+                  $year: "$activityOn",
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                monthly: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          {
+                            $eq: [
+                              "$month",
+                              {
+                                $month: new Date(
+                                  "Sun, 25 Sep 2022 16:07:33 GMT"
+                                ),
+                              },
+                            ],
+                          },
+                          {
+                            $eq: [
+                              "$year",
+                              {
+                                $year: new Date(
+                                  "Sun, 25 Sep 2022 16:07:33 GMT"
+                                ),
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                      "$consumeTime",
+                      0,
+                    ],
+                  },
+                },
+                weekly: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          {
+                            $eq: [
+                              "$week",
+                              {
+                                $week: new Date(
+                                  "Sun, 25 Sep 2022 16:07:33 GMT"
+                                ),
+                              },
+                            ],
+                          },
+                          {
+                            $eq: [
+                              "$month",
+                              {
+                                $month: new Date(
+                                  "Sun, 25 Sep 2022 16:07:33 GMT"
+                                ),
+                              },
+                            ],
+                          },
+                          {
+                            $eq: [
+                              "$year",
+                              {
+                                $year: new Date(
+                                  "Sun, 25 Sep 2022 16:07:33 GMT"
+                                ),
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                      "$consumeTime",
+                      0,
+                    ],
+                  },
+                },
+                today: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          {
+                            $eq: [
+                              "$activityOn",
+                              new Date("Sun, 25 Sep 2022 16:07:33 GMT"),
+                            ],
+                          },
+                        ],
+                      },
+                      "$consumeTime",
+                      0,
+                    ],
+                  },
+                },
+                yesterday: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          {
+                            $eq: [
+                              "$activityOn",
+                              {
+                                $dateSubtract: {
+                                  startDate: "$activityOn",
+                                  unit: "day",
+                                  amount: 1,
+                                },
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                      "$consumeTime",
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+          as: "time",
+        },
+      },
+      {
+        $unwind: {
+          path: "$time",
+          includeArrayIndex: "string",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          name: {
+            $concat: ["$firstName", " ", "$lastName"],
+          },
+          time: 1,
+          lastActive: 1,
+          role: 1,
+          avatar: 1,
+        },
+      },
+    ]);
+    res.json({
+      message: "Success",
+      data: users,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 export {
   getEmployeeList,
   getEmployeeById,
   deleteEmployee,
   editEmployee,
   getEmployeeDetails,
+  getDashboardData,
 };

@@ -117,6 +117,61 @@ const createScreenShot = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get activities
+// @route   POST /activity/getActivities
+// @access  Private
+const getActivities = asyncHandler(async (req, res, next) => {
+  try {
+    // typically for a month
+    const { startTime, endTime, userId } = req.body;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      res.status(404).json({
+        message: "No user found",
+      });
+    }
+
+    // match activities from the users activities and for a full month
+    const activities = await Activity.aggregate([
+      {
+        $match: {},
+      },
+      {
+        $lookup: {
+          from: "screenshots",
+          localField: "screenshots",
+          foreignField: "_id",
+          as: "screenshots",
+        },
+      },
+      {
+        $lookup: {
+          from: "projects",
+          localField: "project",
+          foreignField: "_id",
+          as: "project",
+        },
+      },
+      {
+        $unwind: {
+          path: "$project",
+          includeArrayIndex: "string",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ]);
+
+    res.status(201).json({
+      status: "Successfully fetched Activiies",
+      data: activities,
+      user: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // @desc    Update the activity
 // @route   PATCH /activity/:id
 // @access  Private
@@ -386,6 +441,7 @@ const updateLastActive = asyncHandler(async (req, res) => {
 export {
   createActivity,
   createScreenShot,
+  getActivities,
   updateActivity,
   splitActivity,
   deleteScreenshot,

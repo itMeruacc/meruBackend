@@ -7,6 +7,7 @@ import {
   deleteScreenshot,
   deleteActivity,
   updateLastActive,
+  getActivities,
 } from "../controllers/activity.js";
 import { authPass } from "../middleware/authMiddleware.js";
 
@@ -18,6 +19,8 @@ router
   .route("/")
   .post(authPass, createActivity)
   .delete(authPass, deleteActivity);
+
+router.route("/getActivities").post(authPass, getActivities);
 
 router
   .route("/screenshot")
