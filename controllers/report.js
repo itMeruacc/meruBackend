@@ -41,8 +41,8 @@ const generateReport = asyncHandler(async (req, res) => {
 
     // console.log(clientIds, projectIds, userIds, dateOne, dateTwo);
 
-    if (!dateOne) dateOne = dayjs(-1).format("DD/MM/YYYY");
-    if (!dateTwo) dateTwo = dayjs().format("DD/MM/YYYY");
+    if (!dateOne) dateOne = new Date(1970);
+    if (!dateTwo) dateTwo = new Date();
 
     // let user;
     // if (userId) user = await User.findById(userId);
@@ -92,38 +92,10 @@ const generateReport = asyncHandler(async (req, res) => {
                     $ne: ["$activityOn", null],
                   },
                   {
-                    $gte: [
-                      {
-                        $dateFromString: {
-                          dateString: "$activityOn",
-                          format: "%d/%m/%Y",
-                          onNull: new Date(0),
-                        },
-                      },
-                      {
-                        $dateFromString: {
-                          dateString: dateOne,
-                          format: "%d/%m/%Y",
-                          onNull: new Date(0),
-                        },
-                      },
-                    ],
+                    $gte: ["$activityOn", dateOne],
                   },
                   {
-                    $lte: [
-                      {
-                        $dateFromString: {
-                          dateString: "$activityOn",
-                          format: "%d/%m/%Y",
-                        },
-                      },
-                      {
-                        $dateFromString: {
-                          dateString: dateTwo,
-                          format: "%d/%m/%Y",
-                        },
-                      },
-                    ],
+                    $lte: ["$activityOn", dateTwo],
                   },
                 ],
               },
@@ -479,13 +451,7 @@ const generateReport = asyncHandler(async (req, res) => {
             },
             {
               $project: {
-                _id: {
-                  $dateFromString: {
-                    dateString: "$_id",
-                    format: "%d/%m/%Y",
-                    onNull: new Date(0),
-                  },
-                },
+                _id: 1,
                 actCount: 1,
                 internal: 1,
                 external: 1,
@@ -496,7 +462,7 @@ const generateReport = asyncHandler(async (req, res) => {
             { $sort: { _id: 1 } },
             {
               $project: {
-                _id: { $dateToString: { format: "%d/%m/%Y", date: "$_id" } },
+                _id: 1,
                 actCount: 1,
                 internal: 1,
                 external: 1,
