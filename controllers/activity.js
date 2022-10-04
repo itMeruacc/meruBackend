@@ -5,7 +5,7 @@ import Client from "../models/client.js";
 import Screenshot from "../models/screenshot.js";
 import asyncHandler from "express-async-handler";
 import dayjs from "dayjs";
-import mongoose from "mongoose";
+import Mongoose from "mongoose";
 
 // @desc    Add a new activity
 // @route   POST /activity
@@ -124,7 +124,7 @@ const getActivities = asyncHandler(async (req, res, next) => {
   try {
     // typically for a month
     const { startTime, endTime, userId } = req.body;
-    const user = await User.findById(userId);
+    let user = await User.findById(userId);
 
     if (!user) {
       res.status(404).json({
@@ -161,6 +161,12 @@ const getActivities = asyncHandler(async (req, res, next) => {
         },
       },
     ]);
+
+    user = {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      _id: user._id,
+    };
 
     res.status(201).json({
       status: "Successfully fetched Activiies",

@@ -332,11 +332,7 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
   try {
     const users = await User.aggregate([
       {
-        $match: {
-          activities: {
-            $exists: "true",
-          },
-        },
+        $match: {},
       },
       {
         $lookup: {
@@ -506,10 +502,36 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
           name: {
             $concat: ["$firstName", " ", "$lastName"],
           },
-          time: 1,
+          time: { $ifNull: ["$time", {}] },
           lastActive: 1,
           role: 1,
           avatar: 1,
+        },
+      },
+    ]);
+    res.json({
+      message: "Success",
+      data: users,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// @desc    Get all employees
+// @route   GET /all
+// @access  Private
+const getAllEmployees = asyncHandler(async (req, res, next) => {
+  try {
+    const users = await User.aggregate([
+      {
+        $match: {},
+      },
+      {
+        $project: {
+          name: {
+            $concat: ["$firstName", " ", "$lastName"],
+          },
         },
       },
     ]);
@@ -529,4 +551,5 @@ export {
   editEmployee,
   getEmployeeDetails,
   getDashboardData,
+  getAllEmployees,
 };
