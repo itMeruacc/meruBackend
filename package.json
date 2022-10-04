@@ -14,13 +14,16 @@
       "saved reports/*"
     ]
   },
+  "engines": {
+    "node": ">=16.0.0 <17.0.0"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@sendgrid/mail": "^7.6.2",
     "accesscontrol": "^2.2.1",
-    "aws-sdk": "^2.1165.0",
+    "aws-sdk": "^2.1228.0",
     "bcrypt": "^5.0.1",
     "colors": "^1.4.0",
     "cors": "^2.8.5",
