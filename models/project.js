@@ -22,7 +22,7 @@ const projectSchema = new mongoose.Schema(
       time: { type: Number, default: 0 },
       money: {
         type: String,
-        default: "0$",
+        default: "0",
       },
     },
   },
