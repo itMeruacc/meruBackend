@@ -17,25 +17,19 @@ const ac = new AccessControl(grantsObject);
 // @access  Private
 
 const getEmployeeById = asyncHandler(async (req, res) => {
-  const permission = ac.can(req.user.role).readOwn("members");
-  if (permission.granted) {
-    try {
-      const { id } = req.params;
-      const employee = await User.findById(id);
-      if (!employee) {
-        res.status(404);
-        throw new Error(`Employee not found `);
-      }
-      res.status(200).json({
-        status: "Ok",
-        data: employee,
-      });
-    } catch (error) {
-      throw new Error(error);
+  try {
+    const { id } = req.params;
+    const employee = await User.findById(id);
+    if (!employee) {
+      res.status(404);
+      throw new Error(`Employee not found `);
     }
-  } else {
-    // resource is forbidden for this user/role
-    res.status(403).end("UnAuthorized");
+    res.status(200).json({
+      status: "Ok",
+      data: employee,
+    });
+  } catch (error) {
+    throw new Error(error);
   }
 });
 import dayjs from "dayjs";
@@ -302,26 +296,18 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 // @route   PATCH /edit/:id
 // @access  Private
 const editEmployee = asyncHandler(async (req, res) => {
-  // console.log("Inside Route");
-  const permission = ac.can(req.user.role).updateOwn("members");
-  const currentUser = req.user;
-  if (permission.granted) {
-    const employeeId = req.params.id;
-    const filteredBody = permission.filter(req.body);
-    try {
-      const user = await User.findByIdAndUpdate(employeeId, filteredBody);
-      user.save();
-      res.json({
-        message: "User Updated",
-        data: user,
-      });
-    } catch (error) {
-      console.log(error);
-      throw new Error(error);
-    }
-  } else {
-    // resource is forbidden for this user/role
-    res.status(403).end("UnAuthorized");
+  const employeeId = req.params.id;
+  try {
+    const user = await User.findByIdAndUpdate(employeeId, req.body);
+
+    user.save();
+    res.json({
+      message: "User Updated",
+      data: user,
+    });
+  } catch (error) {
+    console.log(error);
+    throw new Error(error);
   }
 });
 

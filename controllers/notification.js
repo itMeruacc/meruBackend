@@ -4,7 +4,6 @@ import User from "../models/user.js";
 // @desc    To send notifications to user
 // @route   POST notify/:id
 // @access  Private
-
 const sendNotification = asyncHandler(async (req, res) => {
   try {
     const employee = await User.findById(req.params.id);
@@ -35,7 +34,6 @@ const sendNotification = asyncHandler(async (req, res) => {
 // @desc    To read notifications by user
 // @route   PATCH notify/:id
 // @access  Private
-
 const readNotification = asyncHandler(async (req, res) => {
   try {
     const notificationId = req.params.id;
@@ -58,7 +56,6 @@ const readNotification = asyncHandler(async (req, res) => {
 // @desc    To delete notifications by user
 // @route   DELETE notify/:id
 // @access  Private
-
 const deleteNotification = asyncHandler(async (req, res) => {
   try {
     const notificationId = req.params.id;
