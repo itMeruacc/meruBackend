@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Activity from "../models/activity.js";
 import User from "../models/user.js";
 import Project from "../models/project.js";
@@ -5,7 +6,6 @@ import Client from "../models/client.js";
 import Screenshot from "../models/screenshot.js";
 import asyncHandler from "express-async-handler";
 import dayjs from "dayjs";
-import Mongoose from "mongoose";
 
 // @desc    Add a new activity
 // @route   POST /activity
@@ -123,7 +123,7 @@ const createScreenShot = asyncHandler(async (req, res) => {
 const getActivities = asyncHandler(async (req, res, next) => {
   try {
     // typically for a month
-    const { startTime, endTime, userId } = req.body;
+    const { startTime, endTime, userId, hello } = req.body;
     let user = await User.findById(userId);
 
     if (!user) {
@@ -131,11 +131,22 @@ const getActivities = asyncHandler(async (req, res, next) => {
         message: "No user found",
       });
     }
+    ``;
 
     // match activities from the users activities and for a full month
     const activities = await Activity.aggregate([
       {
-        $match: {},
+        $match: {
+          $and: [
+            { employee: mongoose.Types.ObjectId(userId) },
+            {
+              activityOn: {
+                $gte: new Date(startTime.toString()),
+                $lte: new Date(endTime.toString()),
+              },
+            },
+          ],
+        },
       },
       {
         $lookup: {
@@ -158,6 +169,21 @@ const getActivities = asyncHandler(async (req, res, next) => {
           path: "$project",
           includeArrayIndex: "string",
           preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          "project._id": 1,
+          "project.name": 1,
+          screenshots: 1,
+          screenshots: 1,
+          startTime: 1,
+          endTime: 1,
+          consumeTime: { $subtract: ["$endTime", "$startTime"] },
+          activityOn: 1,
+          isInternal: 1,
+          isAccepted: 1,
+          performanceData: 1,
         },
       },
     ]);

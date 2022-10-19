@@ -32,9 +32,9 @@ const importData = asyncHandler(async () => {
 const destroyData = asyncHandler(async () => {
   try {
     // await User.deleteMany();
-    // await Client.deleteMany();
-    // await Project.deleteMany();
-    // await Team.deleteMany();
+    await Client.deleteMany();
+    await Project.deleteMany();
+    await Team.deleteMany();
     await Activity.deleteMany();
     await Screenshot.deleteMany();
 

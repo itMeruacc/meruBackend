@@ -35,7 +35,10 @@ const screenshotSchema = new mongoose.Schema({
     default: "",
   },
   activityAt: {
-    type: Date,
+    type: String,
+  },
+  takenAt: {
+    type: String,
   },
   performanceData: {
     type: Number,

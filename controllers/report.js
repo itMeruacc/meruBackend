@@ -82,15 +82,15 @@ const generateReport = asyncHandler(async (req, res) => {
               },
               {
                 $and: [
-                  {
-                    $ne: ["$activityOn", ""],
-                  },
-                  {
-                    $ne: ["$activityOn", "null"],
-                  },
-                  {
-                    $ne: ["$activityOn", null],
-                  },
+                  // {
+                  //   $ne: ["$activityOn", ""],
+                  // },
+                  // {
+                  //   $ne: ["$activityOn", "null"],
+                  // },
+                  // {
+                  //   $ne: ["$activityOn", null],
+                  // },
                   {
                     $gte: ["$activityOn", dateOne],
                   },

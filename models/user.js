@@ -109,12 +109,8 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 7776000,
     },
-    days: [
-      {
-        date: { type: String, default: "0" },
-        dailyHours: { type: Number, default: 0 },
-        activities: [{ type: mongoose.Types.ObjectId, ref: "Activity" }],
-      },
+    activities: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Activity", default: [] },
     ],
   },
   { timestamps: true }

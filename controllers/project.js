@@ -117,7 +117,7 @@ const getProjects = asyncHandler(async (req, res) => {
     const user = req.user;
 
     // find user and look up join all the projects
-    const [data] = await User.aggregate([
+    const data = await User.aggregate([
       {
         $match: {
           _id: mongoose.Types.ObjectId(user._id),
@@ -131,11 +131,116 @@ const getProjects = asyncHandler(async (req, res) => {
           as: "projects",
         },
       },
+      {
+        $unwind: {
+          path: "$projects",
+          includeArrayIndex: "string",
+        },
+      },
+      {
+        $group: {
+          _id: "$projects._id",
+          client: {
+            $first: "$projects.client",
+          },
+          name: {
+            $first: "$projects.name",
+          },
+          activities: {
+            $first: "$projects.activities",
+          },
+          budget: {
+            $first: "$projects.budget",
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "clients",
+          localField: "client",
+          foreignField: "_id",
+          as: "client",
+        },
+      },
+      {
+        $unwind: {
+          path: "$client",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "activities",
+          let: {
+            actIds: "$activities",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    {
+                      $in: ["$_id", "$$actIds"],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $addFields: {
+                week: {
+                  $week: "$activityOn",
+                },
+                month: {
+                  $month: "$activityOn",
+                },
+                year: {
+                  $year: "$activityOn",
+                },
+                consumeTime: {
+                  $subtract: ["$endTime", "$startTime"],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                consumeTime: {
+                  $sum: "$consumeTime",
+                },
+              },
+            },
+          ],
+          as: "time",
+        },
+      },
+      {
+        $unwind: {
+          path: "$time",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          consumeTime: "$time.consumeTime",
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          _id: 1,
+          budget: 1,
+          consumeTime: { $ifNull: ["$consumeTime", 0] },
+          client: {
+            $ifNull: ["$client", null],
+          },
+        },
+      },
     ]);
 
     res.status(200).json({
       status: "Successfully fetched projects",
-      data: data ? data.projects : [],
+      data: data ?? [],
     });
   } catch (error) {
     throw new Error(error);
