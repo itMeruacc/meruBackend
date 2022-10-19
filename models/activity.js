@@ -25,12 +25,10 @@ const activitySchema = new mongoose.Schema({
     default: "",
   },
   startTime: {
-    type: Date,
-    default: new Date(),
+    type: Number,
   },
   endTime: {
-    type: Date,
-    default: new Date(),
+    type: Number,
   },
   consumeTime: {
     type: Number,
