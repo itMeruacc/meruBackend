@@ -15,7 +15,7 @@ import puppeteer from "puppeteer";
 import { v4 as uuidv4 } from "uuid";
 
 // @desc    Generate Report
-// @route   GET /report
+// @route   POST /report
 // @access  Private
 
 const generateReport = asyncHandler(async (req, res) => {
@@ -39,14 +39,9 @@ const generateReport = asyncHandler(async (req, res) => {
       });
     }
 
-    // console.log(clientIds, projectIds, userIds, dateOne, dateTwo);
-
     if (!dateOne) dateOne = new Date(1970);
     if (!dateTwo) dateTwo = new Date();
-
-    // let user;
-    // if (userId) user = await User.findById(userId);
-    // else user = req.user;
+    console.log(dateOne, dateTwo);
 
     const activity = await Activity.aggregate([
       {
@@ -82,24 +77,22 @@ const generateReport = asyncHandler(async (req, res) => {
               },
               {
                 $and: [
-                  // {
-                  //   $ne: ["$activityOn", ""],
-                  // },
-                  // {
-                  //   $ne: ["$activityOn", "null"],
-                  // },
-                  // {
-                  //   $ne: ["$activityOn", null],
-                  // },
                   {
-                    $gte: ["$activityOn", dateOne],
+                    $gte: ["$activityOn", new Date(dateOne.toString())],
                   },
                   {
-                    $lte: ["$activityOn", dateTwo],
+                    $lte: ["$activityOn", new Date(dateTwo.toString())],
                   },
                 ],
               },
             ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          consumeTime: {
+            $subtract: ["$endTime", "$startTime"],
           },
         },
       },
