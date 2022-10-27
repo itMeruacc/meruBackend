@@ -316,9 +316,31 @@ const editEmployee = asyncHandler(async (req, res) => {
 // @access  Private
 const getDashboardData = asyncHandler(async (req, res, next) => {
   try {
+    const user = await User.findById(req.user.id);
+    const date = new Date(new Date().setHours(0, 0, 0, 0)).toString();
+
+    let userIds = [];
+    if (user.role === "employee")
+      userIds = [mongoose.Types.ObjectId(req.user.id)];
+    if (user.role === "admin") {
+      userIds = await User.aggregate([
+        {
+          $match: {},
+        },
+        {
+          $project: { _id: 1 },
+        },
+      ]);
+      userIds = userIds.map((user) => user._id);
+    }
+
+    console.log(userIds);
+
     const users = await User.aggregate([
       {
-        $match: {},
+        $match: {
+          _id: { $in: userIds },
+        },
       },
       {
         $lookup: {
@@ -340,6 +362,9 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
             },
             {
               $addFields: {
+                consumeTime: {
+                  $subtract: ["$endTime", "$startTime"],
+                },
                 week: {
                   $week: "$activityOn",
                 },
@@ -348,6 +373,9 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                 },
                 year: {
                   $year: "$activityOn",
+                },
+                day: {
+                  $dayOfYear: "$activityOn",
                 },
               },
             },
@@ -363,9 +391,7 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                             $eq: [
                               "$month",
                               {
-                                $month: new Date(
-                                  "Sun, 25 Sep 2022 16:07:33 GMT"
-                                ),
+                                $month: new Date(date),
                               },
                             ],
                           },
@@ -373,9 +399,7 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                             $eq: [
                               "$year",
                               {
-                                $year: new Date(
-                                  "Sun, 25 Sep 2022 16:07:33 GMT"
-                                ),
+                                $year: new Date(date),
                               },
                             ],
                           },
@@ -395,9 +419,7 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                             $eq: [
                               "$week",
                               {
-                                $week: new Date(
-                                  "Sun, 25 Sep 2022 16:07:33 GMT"
-                                ),
+                                $week: new Date(date),
                               },
                             ],
                           },
@@ -405,9 +427,7 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                             $eq: [
                               "$month",
                               {
-                                $month: new Date(
-                                  "Sun, 25 Sep 2022 16:07:33 GMT"
-                                ),
+                                $month: new Date(date),
                               },
                             ],
                           },
@@ -415,9 +435,7 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                             $eq: [
                               "$year",
                               {
-                                $year: new Date(
-                                  "Sun, 25 Sep 2022 16:07:33 GMT"
-                                ),
+                                $year: new Date(date),
                               },
                             ],
                           },
@@ -434,9 +452,18 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                       {
                         $and: [
                           {
-                            $eq: [
+                            $gte: ["$activityOn", new Date(date)],
+                          },
+                          {
+                            $lte: [
                               "$activityOn",
-                              new Date("Sun, 25 Sep 2022 16:07:33 GMT"),
+                              {
+                                $dateAdd: {
+                                  startDate: new Date(date),
+                                  unit: "day",
+                                  amount: 1,
+                                },
+                              },
                             ],
                           },
                         ],
@@ -452,16 +479,19 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                       {
                         $and: [
                           {
-                            $eq: [
+                            $gte: [
                               "$activityOn",
                               {
                                 $dateSubtract: {
-                                  startDate: "$activityOn",
+                                  startDate: new Date(date),
                                   unit: "day",
                                   amount: 1,
                                 },
                               },
                             ],
+                          },
+                          {
+                            $lte: ["$activityOn", new Date(date)],
                           },
                         ],
                       },
@@ -479,7 +509,6 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
       {
         $unwind: {
           path: "$time",
-          includeArrayIndex: "string",
           preserveNullAndEmptyArrays: true,
         },
       },
@@ -488,7 +517,9 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
           name: {
             $concat: ["$firstName", " ", "$lastName"],
           },
-          time: { $ifNull: ["$time", {}] },
+          time: {
+            $ifNull: ["$time", {}],
+          },
           lastActive: 1,
           role: 1,
           avatar: 1,

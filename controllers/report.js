@@ -38,10 +38,8 @@ const generateReport = asyncHandler(async (req, res) => {
         return mongoose.Types.ObjectId(id._id);
       });
     }
-
     if (!dateOne) dateOne = new Date(1970);
     if (!dateTwo) dateTwo = new Date();
-    console.log(dateOne, dateTwo);
 
     const activity = await Activity.aggregate([
       {
@@ -873,7 +871,7 @@ const fetchReports = asyncHandler(async (req, res) => {
 
     res.json({
       status: report[0].share ? "Report fetched" : "403",
-      report: report[0].share ? data : "403",
+      reports: report[0].share ? data : "403",
       data: report[0].share ? report : "403",
     });
   } catch (error) {

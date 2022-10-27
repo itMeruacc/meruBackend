@@ -16,7 +16,9 @@ const router = express.Router();
 
 router.route("/").post(authPass, generateReport);
 router.route("/save").post(authPass, saveReports);
+// all reports
 router.route("/saved").get(authPass, savedReports);
+// single report with url (share)
 router.route("/fetch").post(fetchReports);
 router.route("/options").post(authPass, reportOptions);
 router.route("/delete/:url").delete(authPass, deleteReports);
