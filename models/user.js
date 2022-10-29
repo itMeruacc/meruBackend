@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { SchemaTypes } from "mongoose";
 import bcrypt from "bcrypt";
 
 const notificationSchema = new mongoose.Schema(
@@ -58,6 +58,27 @@ const userSchema = new mongoose.Schema(
       default: "null",
     },
     notifications: [notificationSchema],
+
+    config: {
+      autoPauseMinutes: { type: mongoose.Schema.Types.Mixed, default: null },
+      screensConfig: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null,
+      },
+      disableOfflineTime: { type: mongoose.Schema.Types.Mixed, default: null },
+      disableScreenshotNotification: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null,
+      },
+      disableActivityLevel: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null,
+      },
+      currency: { type: mongoose.Schema.Types.Mixed, default: "Rs. " },
+      weeklyLimit: { type: mongoose.Schema.Types.Mixed, default: null },
+      weekStartDay: { type: mongoose.Schema.Types.Mixed, default: null },
+      disableAppTracking: { type: mongoose.Schema.Types.Mixed, default: null },
+    },
     settings: {
       ScreenShotPerHour: {
         isTeamSetting: { type: Boolean, required: true, default: true },

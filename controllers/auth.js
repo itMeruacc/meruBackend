@@ -2,12 +2,11 @@ import User from "../models/user.js";
 import Activity from "../models/activity.js";
 import generateToken from "../utils/generateToken.js";
 import asyncHandler from "express-async-handler";
+import mongoose from "mongoose";
 import fs from "fs";
 import { AccessControl } from "accesscontrol";
 import { grantsObject } from "../utils/permissions.js";
-
 import dayjs from "dayjs";
-// import { mongoose } from "mongoose";
 
 // @desc    Register new user
 // @route   POST /register
@@ -625,7 +624,6 @@ const teamCommondata = asyncHandler(async (req, res) => {
 // @desc    Generate Report
 // @route   GET /report
 // @access  Private
-import mongoose from "mongoose";
 const generateReportByIds = asyncHandler(async (req, res) => {
   try {
     let { clientIds, projectIds, userIds, dateOne, dateTwo } = req.body;
