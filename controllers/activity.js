@@ -316,7 +316,7 @@ const deleteScreenshot = asyncHandler(async (req, res) => {
     // });
 
     const screenshot = await Screenshot.findById(screenshotId);
-    if (!screenshot) throw new Error('Screenshot not found', 404);
+    if (!screenshot) throw new Error("Screenshot not found", 404);
 
     await Activity.updateOne(
       { _id: screenshot.activityId },
@@ -324,12 +324,12 @@ const deleteScreenshot = asyncHandler(async (req, res) => {
         $pull: {
           screenshots: screenshotId,
         },
-      },
-      {
-        $set: {
-          endTime: { $subtract: ["$endTime", delTime] },
-        },
       }
+      // {
+      //   $set: {
+      //     endTime: { $subtract: ["$endTime", delTime] },
+      //   },
+      // }
     );
 
     // del ss
