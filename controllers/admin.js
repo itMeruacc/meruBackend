@@ -19,20 +19,14 @@ const ac = new AccessControl(grantsObject);
 // @access  Private
 
 const getAllEmployee = asyncHandler(async (req, res) => {
-  const permission = ac.can(req.user.role).readOwn("members");
-  if (permission.granted) {
-    try {
-      const users = await User.find().select("_id firstName lastName");
-      res.status(200).json({
-        messsage: "Success",
-        data: users,
-      });
-    } catch (error) {
-      throw new Error(error);
-    }
-  } else {
-    // resource is forbidden for this user/role
-    res.status(403).end("UnAuthorized");
+  try {
+    const users = await User.find().select("_id firstName lastName");
+    res.status(200).json({
+      messsage: "Success",
+      data: users,
+    });
+  } catch (error) {
+    throw new Error(error);
   }
 });
 
@@ -241,4 +235,28 @@ const changeCurrency = asyncHandler(async (req, res) => {
   }
 });
 
-export { getAllEmployee, getAllTeams, adminCommondata, changeCurrency };
+
+// @desc    Update team settings
+// @route   PATCH /config
+// @access  Private
+const updateSettings = asyncHandler(async (req, res) => {
+
+  try {
+    const users = await User.find();
+
+    for (let index = 0; index < users.length; index++) {
+      const user = users[index];
+      user.settings.CurrencySymbol.individualValue = newValue;
+      await user.save();
+    }
+
+    res.status(200).json({
+      messsage: "Success",
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+}
+);
+
+export { getAllEmployee, getAllTeams, adminCommondata, changeCurrency, updateSettings };

@@ -285,39 +285,55 @@ const deleteActivity = asyncHandler(async (req, res) => {
 // @access  Private
 const deleteScreenshot = asyncHandler(async (req, res) => {
   try {
-    const { screenshots } = req.body;
-    console.log(screenshots);
-    screenshots.forEach(async (screenshotId) => {
-      const screenshot = await Screenshot.findById(screenshotId);
-      if (!screenshot) {
-        res.status(404);
-        throw new Error(`${screenshotId} not found`);
-      }
+    const { screenshotId } = req.body;
+    // screenshots.forEach(async (screenshotId) => {
+    //   const screenshot = await Screenshot.findById(screenshotId);
+    //   if (screenshot) {
+    //     // get del time and subtract from endTime and pull ss form act
+    //     const delTime = screenshot.consumeTime ?? 0;
 
-      // get del time and subtract from endTime and pull ss form act
-      const delTime = screenshot.consumeTime ?? 0;
+    //     const activity = await Activity.findById(screenshot.activityId);
+    //     activity.consumeTime = activity.consumeTime - delTime;
 
-      const activity = await Activity.findById(screenshot.activityId);
-      activity.consumeTime = activity.consumeTime - delTime;
+    //     await Activity.updateOne(
+    //       { _id: screenshot.activityId },
+    //       {
+    //         $pull: {
+    //           screenshots: screenshotId,
+    //         },
+    //       },
+    //       {
+    //         $set: {
+    //           endTime: { $subtract: ["$endTime", delTime] },
+    //         },
+    //       }
+    //     );
+    //     await activity.save();
 
-      await Activity.updateOne(
-        { _id: screenshot.activityId },
-        {
-          $pull: {
-            screenshots: screenshotId,
-          },
+    //     // del ss
+    //     await Screenshot.findByIdAndDelete(screenshotId);
+    //   }
+    // });
+
+    const screenshot = await Screenshot.findById(screenshotId);
+    if (!screenshot) throw new Error('Screenshot not found', 404);
+
+    await Activity.updateOne(
+      { _id: screenshot.activityId },
+      {
+        $pull: {
+          screenshots: screenshotId,
         },
-        {
-          $set: {
-            endTime: { $subtract: ["$endTime", delTime] },
-          },
-        }
-      );
-      await activity.save();
+      },
+      {
+        $set: {
+          endTime: { $subtract: ["$endTime", delTime] },
+        },
+      }
+    );
 
-      // del ss
-      await Screenshot.findByIdAndDelete(screenshotId);
-    });
+    // del ss
+    await Screenshot.findByIdAndDelete(screenshotId);
 
     res.status(200).json({
       status: "Successfully deleted screenshots",

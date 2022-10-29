@@ -2,9 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import morgan from "morgan";
 import colors from "colors";
-import swaggerUi from "swagger-ui-express";
 import path from "path";
-import YAML from "yamljs";
 import cors from "cors";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 import connectDB from "./config/db.js";
@@ -27,6 +25,7 @@ import screenshotDeleteRoutes from "./routes/screenshotDeleteTime.js";
 // import "./maintenance/emailCron.js";
 // import "./maintenance/delSsCron.js";
 // import "./maintenance/budgetNotiCron.js";
+import "./stream/project.js";
 
 const __dirname = path.resolve();
 
