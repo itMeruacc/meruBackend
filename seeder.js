@@ -12,6 +12,7 @@ import Client from "./models/client.js";
 import Project from "./models/project.js";
 import Activity from "./models/activity.js";
 import Screenshot from "./models/screenshot.js";
+import AdminConfig from "./models/adminConfig.js";
 
 dotenv.config({ path: "./config/config.env" });
 
@@ -19,6 +20,8 @@ connectDB();
 
 const importData = asyncHandler(async () => {
   try {
+    // await AdminConfig.create({});
+
     await User.deleteMany();
     await User.insertMany(users);
     console.log(`Data imported`.green.inverse);

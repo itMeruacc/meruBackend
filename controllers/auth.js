@@ -1,5 +1,6 @@
 import User from "../models/user.js";
 import Activity from "../models/activity.js";
+import AdminConfig from "../models/adminConfig.js";
 import generateToken from "../utils/generateToken.js";
 import asyncHandler from "express-async-handler";
 import mongoose from "mongoose";
@@ -65,6 +66,7 @@ const login = asyncHandler(async (req, res) => {
   }
 
   const user = await User.findOne({ email });
+  const teamConfig = await AdminConfig.findOne();
 
   if (user && (await user.matchPassword(password))) {
     res.status(200).json({
@@ -75,6 +77,8 @@ const login = asyncHandler(async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         role: user.role,
+        config: user.config,
+        teamConfig,
       },
       token: generateToken(user._id),
     });

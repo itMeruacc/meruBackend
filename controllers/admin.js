@@ -4,6 +4,7 @@ import Project from "../models/project.js";
 import Team from "../models/team.js";
 import mongoose from "mongoose";
 import Activity from "../models/activity.js";
+import AdminConfig from "../models/adminConfig.js";
 import dayjs from "dayjs";
 import asyncHandler from "express-async-handler";
 
@@ -235,28 +236,37 @@ const changeCurrency = asyncHandler(async (req, res) => {
   }
 });
 
-
 // @desc    Update team settings
 // @route   PATCH /config
 // @access  Private
-const updateSettings = asyncHandler(async (req, res) => {
-
+const updateConfig = asyncHandler(async (req, res) => {
   try {
-    const users = await User.find();
+    console.log(req.body);
+    const { employeeId, config: newConfig } = req.body;
 
-    for (let index = 0; index < users.length; index++) {
-      const user = users[index];
-      user.settings.CurrencySymbol.individualValue = newValue;
-      await user.save();
+    if (!employeeId) {
+      await AdminConfig.findOneAndUpdate({}, newConfig);
+    } else {
+      const { config } = await User.findById(employeeId);
+      const user = await User.updateOne(
+        { _id: mongoose.Types.ObjectId(employeeId) },
+        {
+          $set: { config: { ...config, ...newConfig } },
+        }
+      );
     }
-
     res.status(200).json({
       messsage: "Success",
     });
   } catch (error) {
     throw new Error(error);
   }
-}
-);
+});
 
-export { getAllEmployee, getAllTeams, adminCommondata, changeCurrency, updateSettings };
+export {
+  getAllEmployee,
+  getAllTeams,
+  adminCommondata,
+  changeCurrency,
+  updateConfig,
+};

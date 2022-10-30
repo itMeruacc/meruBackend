@@ -549,6 +549,7 @@ const getAllEmployees = asyncHandler(async (req, res, next) => {
           name: {
             $concat: ["$firstName", " ", "$lastName"],
           },
+          config: 1,
         },
       },
     ]);
