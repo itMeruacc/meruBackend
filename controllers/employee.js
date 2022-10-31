@@ -320,8 +320,9 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
     const date = new Date(new Date().setHours(0, 0, 0, 0)).toString();
 
     let userIds = [];
-    if (user.role === "employee")
+    if (user.role === "employee" || user.role === "projectLeader")
       userIds = [mongoose.Types.ObjectId(req.user.id)];
+    if (user.role === "manager") userIds = user.managerFor;
     if (user.role === "admin") {
       userIds = await User.aggregate([
         {
