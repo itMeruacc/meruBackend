@@ -316,13 +316,18 @@ const editEmployee = asyncHandler(async (req, res) => {
 // @access  Private
 const getDashboardData = asyncHandler(async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id);
+    console.log(user.role);
     const date = new Date(new Date().setHours(0, 0, 0, 0)).toString();
 
     let userIds = [];
     if (user.role === "employee" || user.role === "projectLeader")
       userIds = [mongoose.Types.ObjectId(req.user.id)];
-    if (user.role === "manager") userIds = user.managerFor;
+    if (user.role === "manager") {
+      userIds = user.managerFor;
+      userIds.push(user._id);
+    }
+    console.log(user.role);
     if (user.role === "admin") {
       userIds = await User.aggregate([
         {
@@ -332,10 +337,9 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
           $project: { _id: 1 },
         },
       ]);
+      console.log(userIds);
       userIds = userIds.map((user) => user._id);
     }
-
-    console.log(userIds);
 
     const users = await User.aggregate([
       {
