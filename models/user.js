@@ -1,17 +1,6 @@
 import mongoose, { SchemaTypes } from "mongoose";
 import bcrypt from "bcrypt";
 
-const notificationSchema = new mongoose.Schema(
-  {
-    title: { type: String, required: true },
-    description: { type: String, required: true },
-    avatar: String,
-    type: { type: String, required: true },
-    isUnRead: { type: Boolean, default: true },
-  },
-  { timestamps: true }
-);
-
 const userSchema = new mongoose.Schema(
   {
     firstName: { type: String, required: true },
@@ -35,6 +24,7 @@ const userSchema = new mongoose.Schema(
       // add time zone as in mongo aggregation
       timeZone: { type: String, default: "IST" },
     },
+    managerFor: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     projects: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -57,7 +47,9 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "null",
     },
-    notifications: [notificationSchema],
+    notifications: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Notification" },
+    ],
 
     config: {
       autoPauseMinutes: { type: mongoose.Schema.Types.Mixed, default: null },

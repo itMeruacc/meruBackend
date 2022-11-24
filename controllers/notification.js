@@ -1,25 +1,30 @@
 import asyncHandler from "express-async-handler";
 import User from "../models/user.js";
+import Notification from "../models/notification.js";
 
 // @desc    To send notifications to user
-// @route   POST notify/:id
+// @route   POST /notify
 // @access  Private
 const sendNotification = asyncHandler(async (req, res) => {
   try {
-    const employee = await User.findById(req.params.id);
+    console.log(req.user);
+    const employee = await User.findById(req.user._id);
     if (!employee) {
       res.status(404);
       throw new Error(`Employee not found`);
     }
 
-    const notification = {
+    const notification = await new Notification({
       title: req.body.title,
       description: req.body.description,
       avatar: req.body.avatar,
       type: req.body.type,
-    };
-    employee.notifications = [notification, ...employee.notifications];
+    });
+    if (!notification) throw new Error("Error creating new project");
+    notification.save();
 
+    // Add notification to the users notifications
+    employee.notifications.push(notification._id);
     await employee.save();
 
     res.status(201).json({

@@ -65,7 +65,7 @@ const login = asyncHandler(async (req, res) => {
     throw new Error("Missing credentials");
   }
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).populate("notifications");
   const teamConfig = await AdminConfig.findOne();
 
   if (user && (await user.matchPassword(password))) {
@@ -79,6 +79,7 @@ const login = asyncHandler(async (req, res) => {
         role: user.role,
         config: user.config,
         teamConfig,
+        notifications: user.notifications,
       },
       token: generateToken(user._id),
     });
@@ -1020,6 +1021,37 @@ const updateTimeZone = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Desktop login
+// @route   post /desktopLogin
+// @access  Public
+const desktopLogin = asyncHandler(async (req, res) => {
+  try {
+    console.log("ehllos");
+    const user = await User.findById(req.user._id);
+    const teamConfig = await AdminConfig.findOne();
+    if (user) {
+      res.status(200).json({
+        status: "success",
+        user: {
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role,
+          config: user.config,
+          teamConfig,
+        },
+        token: generateToken(user._id),
+      });
+    } else {
+      res.status(400);
+      throw new Error("Invalid email or password");
+    }
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
 export {
   downloadApp,
   login,
@@ -1030,4 +1062,5 @@ export {
   generateReportByIds,
   roleCheck,
   updateTimeZone,
+  desktopLogin,
 };

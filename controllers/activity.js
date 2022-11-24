@@ -14,6 +14,7 @@ const createActivity = asyncHandler(async (req, res) => {
   try {
     // get input
     const {
+      note,
       clientId,
       projectId,
       task,
@@ -28,6 +29,7 @@ const createActivity = asyncHandler(async (req, res) => {
     let today = activityOn ? activityOn : new Date();
 
     const activity = await Activity.create({
+      note,
       employee: employeeId,
       client: clientId,
       project: projectId,
@@ -184,6 +186,7 @@ const getActivities = asyncHandler(async (req, res, next) => {
           isInternal: 1,
           isAccepted: 1,
           performanceData: 1,
+          note: 1,
         },
       },
     ]);

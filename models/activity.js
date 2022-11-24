@@ -24,6 +24,10 @@ const activitySchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  note: {
+    type: String,
+    default: "No Note",
+  },
   startTime: {
     type: Number,
   },

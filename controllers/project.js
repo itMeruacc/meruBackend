@@ -401,6 +401,12 @@ const deleteProjectById = asyncHandler(async (req, res) => {
       { $pull: { projects: mongoose.Types.ObjectId(projectId) } }
     );
 
+    // set all activities projects to null
+    await Activity.updateMany(
+      { _id: { $in: project.activities } },
+      { $set: { project: null } }
+    );
+
     // delete the project
     project = await Project.findByIdAndRemove(projectId);
 

@@ -312,7 +312,7 @@ const editEmployee = asyncHandler(async (req, res) => {
 });
 
 // @desc    Get dashboard data
-// @route   GET /dashboard
+// @route   GET /dashboard/all
 // @access  Private
 const getDashboardData = asyncHandler(async (req, res, next) => {
   try {
