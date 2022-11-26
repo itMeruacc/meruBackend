@@ -23,6 +23,7 @@ const generateReport = asyncHandler(async (req, res) => {
     let { clientIds, projectIds, userIds, dateOne, dateTwo, groupBy } =
       req.body;
 
+    // simply string ids to mongo ids
     if (projectIds) {
       projectIds = projectIds.map((id) => {
         return mongoose.Types.ObjectId(id._id);
@@ -38,8 +39,60 @@ const generateReport = asyncHandler(async (req, res) => {
         return mongoose.Types.ObjectId(id._id);
       });
     }
+    console.log(dateOne, dateTwo);
+    // js dates, use new Date() in mongo to convert it to mongo dates
     if (!dateOne) dateOne = new Date(1970);
     if (!dateTwo) dateTwo = new Date();
+
+    // To calculate the time difference of two dates
+    const Difference_In_Time =
+      new Date(dateTwo).getTime() - new Date(dateOne).getTime();
+
+    // To calculate the no. of days between two dates
+    const diffDays = Difference_In_Time / (1000 * 3600 * 24);
+    let datePipelineId;
+    // needed coz bar graph in frontend cant take object for x axis
+    let datePipelineIdProject = {
+      $concat: [{ $toString: "$_id.month" }, "/", { $toString: "$_id.year" }],
+    };
+    if (diffDays > 31 && diffDays <= 120) {
+      // weekly
+      console.log("weekly");
+      datePipelineId = { $week: "$activityOn" };
+      datePipelineIdProject = 1;
+    } else if (diffDays > 120 && diffDays <= 365) {
+      // monthly
+      console.log("monthly");
+      datePipelineId = {
+        month: { $month: "$activityOn" },
+        year: { $year: "$activityOn" },
+      };
+    } else if (diffDays > 365) {
+      // yearly
+      console.log("yearly");
+      datePipelineId = {
+        month: "month",
+        year: { $year: "$activityOn" },
+      };
+    } else {
+      // daily
+      console.log("daily");
+      datePipelineId = {
+        day: { $dayOfMonth: "$activityOn" },
+        month: { $month: "$activityOn" },
+        year: { $year: "$activityOn" },
+      };
+      datePipelineIdProject = {
+        $concat: [
+          { $toString: "$_id.day" },
+          "/",
+          { $toString: "$_id.month" },
+          "/",
+          { $toString: "$_id.year" },
+        ],
+      };
+    }
+    console.log(datePipelineIdProject);
 
     const activity = await Activity.aggregate([
       {
@@ -89,6 +142,15 @@ const generateReport = asyncHandler(async (req, res) => {
       },
       {
         $addFields: {
+          week: {
+            $week: "$activityOn",
+          },
+          month: {
+            $month: "$activityOn",
+          },
+          year: {
+            $year: "$activityOn",
+          },
           consumeTime: {
             $subtract: ["$endTime", "$startTime"],
           },
@@ -428,7 +490,7 @@ const generateReport = asyncHandler(async (req, res) => {
           byDates: [
             {
               $group: {
-                _id: "$activityOn",
+                _id: datePipelineId,
                 internal: {
                   $sum: { $cond: ["$isInternal", "$consumeTime", 0] },
                 },
@@ -453,7 +515,7 @@ const generateReport = asyncHandler(async (req, res) => {
             { $sort: { _id: 1 } },
             {
               $project: {
-                _id: 1,
+                _id: datePipelineIdProject,
                 actCount: 1,
                 internal: 1,
                 external: 1,
@@ -733,6 +795,7 @@ const generateReport = asyncHandler(async (req, res) => {
 const saveReports = asyncHandler(async (req, res) => {
   try {
     let {
+      cronString,
       scheduleEmail,
       schedule,
       scheduleType,
@@ -782,6 +845,7 @@ const saveReports = asyncHandler(async (req, res) => {
 
     // make a new document for reports schema
     const saved = await Reports.create({
+      cronString,
       schedule,
       scheduleType,
       scheduleEmail,

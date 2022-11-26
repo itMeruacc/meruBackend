@@ -567,6 +567,55 @@ const getAllEmployees = asyncHandler(async (req, res, next) => {
   }
 });
 
+// @desc    Edit manager for manager
+// @route   patch /manager/:id
+// @access  Private
+const editManagerFor = asyncHandler(async (req, res, next) => {
+  try {
+    const managerId = req.params.id;
+    const { employeeId, assign } = req.body;
+
+    const manager = await User.findById(managerId);
+    if (!manager) {
+      res.status(404);
+      throw new Error("User not found");
+    }
+
+    // check for valid employee
+    const newEmployee = await User.findById(employeeId);
+    if (!newEmployee) {
+      res.status(404);
+      throw new Error("No such employee found");
+    }
+
+    if (assign)
+      await User.updateOne(
+        { _id: managerId },
+        {
+          $addToSet: {
+            managerFor: employeeId,
+          },
+        }
+      );
+    else
+      await User.updateOne(
+        { _id: managerId },
+        {
+          $pull: {
+            managerFor: employeeId,
+          },
+        }
+      );
+
+    res.json({
+      message: "Success",
+      data: manager,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 export {
   getEmployeeList,
   getEmployeeById,
@@ -575,4 +624,5 @@ export {
   getEmployeeDetails,
   getDashboardData,
   getAllEmployees,
+  editManagerFor,
 };

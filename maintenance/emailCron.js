@@ -30,135 +30,158 @@ const dayNames = [
 // delete report function
 // a function to combine these all
 
-schedule.scheduleJob(`20 31 14 * * *`, async () => {
+schedule.scheduleJob(`* * * * * *`, async () => {
   console.log("scheduling");
-  // looking for reports every minute now, we only need to look once a day to avoid multiple schedules.
+  // looking for reports every minute now, we only need to look once an hour to avoid multiple schedules.
   // match by schedule true
   // match by todays day, date.
-  const dayName = dayNames[dayjs().day()];
-  const dayNo = dayjs().date();
+  const currWeekDay = dayjs().day();
+  const currHour = new Date().getHours();
+  const currMonthDay = new Date().getDate();
+
   const schedules = await Reports.aggregate([
     {
       $match: {
-        $expr: {
-          $and: [
-            {
-              $eq: ["$schedule", true],
-            },
-            {
-              $eq: [
-                "$user",
-                mongoose.Types.ObjectId("62431c112ef0d76927367c0c"),
-              ],
-            },
+        cronString: { $exists: true },
+        // $expr: {
+        //   $and: [
+        //     {
+        //       $eq: ["$schedule", true],
+        //     },
+        //     {
+        //       $eq: [
+        //         "$user",
+        //         mongoose.Types.ObjectId("62431c112ef0d76927367c0c"),
+        //       ],
+        //     },
 
-            {
-              $or: [
-                {
-                  $eq: [{ $arrayElemAt: ["$scheduleType", 0] }, "Daily"],
-                },
-                {
-                  $switch: {
-                    branches: [
-                      {
-                        case: {
-                          $eq: [
-                            { $arrayElemAt: ["$scheduleType", 0] },
-                            "Weekly",
-                          ],
-                        },
-                        then: {
-                          $eq: [
-                            { $arrayElemAt: ["$scheduleType", 1] },
-                            dayName,
-                          ],
-                        },
-                      },
-                      {
-                        case: {
-                          $eq: [
-                            { $arrayElemAt: ["$scheduleType", 0] },
-                            "Monthly",
-                          ],
-                        },
-                        then: {
-                          $eq: [{ $arrayElemAt: ["$scheduleType", 1] }, dayNo],
-                        },
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          ],
-        },
+        //     {
+        //       $or: [
+        //         {
+        //           $eq: [{ $arrayElemAt: ["$scheduleType", 0] }, "Daily"],
+        //         },
+        //         {
+        //           $switch: {
+        //             branches: [
+        //               {
+        //                 case: {
+        //                   $eq: [
+        //                     { $arrayElemAt: ["$scheduleType", 0] },
+        //                     "Weekly",
+        //                   ],
+        //                 },
+        //                 then: {
+        //                   $eq: [
+        //                     { $arrayElemAt: ["$scheduleType", 1] },
+        //                     dayName,
+        //                   ],
+        //                 },
+        //               },
+        //               {
+        //                 case: {
+        //                   $eq: [
+        //                     { $arrayElemAt: ["$scheduleType", 0] },
+        //                     "Monthly",
+        //                   ],
+        //                 },
+        //                 then: {
+        //                   $eq: [{ $arrayElemAt: ["$scheduleType", 1] }, dayNo],
+        //                 },
+        //               },
+        //             ],
+        //           },
+        //         },
+        //       ],
+        //     },
+        //   ],
+        // },
       },
     },
-    {
-      $lookup: {
-        from: "users",
-        localField: "user",
-        foreignField: "_id",
-        as: "user",
-      },
-    },
-    {
-      $unwind: {
-        path: "$user",
-        includeArrayIndex: "string",
-        preserveNullAndEmptyArrays: true,
-      },
-    },
+    // {
+    //   $lookup: {
+    //     from: "users",
+    //     localField: "user",
+    //     foreignField: "_id",
+    //     as: "user",
+    //   },
+    // },
+    // {
+    //   $unwind: {
+    //     path: "$user",
+    //     includeArrayIndex: "string",
+    //     preserveNullAndEmptyArrays: true,
+    //   },
+    // },
   ]);
-  // cron single time each schedule(report)
-  console.log(schedules.length);
-  schedules.map(async (sched) => {
-    // making a new date for cron to run only once.
-    const time1 = Number(sched.scheduleType[2].split(":")[0]);
-    const time2 = Number(sched.scheduleType[2].split(":")[1]);
-    const date = new Date(2022, 3, 15, time1, time2, 0);
-    console.log(time1, time2);
-    console.log(date);
-    schedule.scheduleJob(date, async function () {
-      try {
-        // generate report from the scheduled report to save the json file
-        let reports = await generateReport({
-          body: { dateRange: sched.scheduleType[0], ...sched.options },
-        });
-        console.log("generated");
-        // save the report with appropriate url
-        let saved = await saveReports({
-          body: { ...sched, reports, userId: sched.user._id },
-        });
-        console.log(saved.url);
+  console.log(schedules);
+  schedules.filter((schedule) => {
+    const splitCron = schedule.cronString.split(" ");
+    const hour = splitCron[1];
+    const monthDay = splitCron[2];
+    const weekDay = splitCron[4];
 
-        // generate pdf
-        const browser = await puppeteer.launch();
-        const page = await browser.newPage();
-        await page.goto(
-          `http://localhost:3000/downloadReportPdf/${saved.url}`,
-          {
-            waitUntil: "networkidle2",
-          }
-        );
-        await page.setViewport({ width: 1680, height: 1050 });
-        let uniquePdf = uuidv4();
-        await page.pdf({
-          path: `./pdf/${uniquePdf}.pdf`,
-          format: "A4",
-        });
+    if (splitCron[4] === "*") {
+    }
 
-        // mail the pdf
-        browser.close().then(mail(uniquePdf, sched.scheduledEmail));
-        // console.log("sent");
-        // delete the saved report and pdf
-        deleteReports(saved.url);
-        deletePdf(uniquePdf);
-      } catch (err) {
-        console.log(err);
-      }
-    });
+    return (
+      hour === currHour && monthDay === currMonthDay && weekDay === currWeekDay
+    );
   });
+
+  console.log(schedules);
+
+  // schedules.forEach((schedule) =>
+  //   console.log(schedule.cronString.split(" ")[1])
+  // );
+  // cron single time each schedule(report)
+  // console.log(schedules.length);
+  // schedules.map(async (sched) => {
+  //   // making a new date for cron to run only once.
+  //   const time1 = Number(sched.scheduleType[2].split(":")[0]);
+  //   const time2 = Number(sched.scheduleType[2].split(":")[1]);
+  //   const date = new Date(2022, 3, 15, time1, time2, 0);
+  //   console.log(time1, time2);
+  //   console.log(date);
+  //   schedule.scheduleJob(date, async function () {
+  //     try {
+  //       // generate report from the scheduled report to save the json file
+  //       let reports = await generateReport({
+  //         body: { dateRange: sched.scheduleType[0], ...sched.options },
+  //       });
+  //       console.log("generated");
+  //       // save the report with appropriate url
+  //       let saved = await saveReports({
+  //         body: { ...sched, reports, userId: sched.user._id },
+  //       });
+  //       console.log(saved.url);
+
+  //       // generate pdf
+  //       const browser = await puppeteer.launch();
+  //       const page = await browser.newPage();
+  //       await page.goto(
+  //         `http://localhost:3000/downloadReportPdf/${saved.url}`,
+  //         {
+  //           waitUntil: "networkidle2",
+  //         }
+  //       );
+  //       await page.setViewport({ width: 1680, height: 1050 });
+  //       let uniquePdf = uuidv4();
+  //       await page.pdf({
+  //         path: `./pdf/${uniquePdf}.pdf`,
+  //         format: "A4",
+  //       });
+
+  //       // mail the pdf
+  //       browser.close().then(mail(uniquePdf, sched.scheduledEmail));
+  //       // console.log("sent");
+  //       // delete the saved report and pdf
+  //       deleteReports(saved.url);
+  //       deletePdf(uniquePdf);
+  //     } catch (err) {
+  //       console.log(err);
+  //     }
+  //   });
+  // });
 });
 
 const generateReport = asyncHandler(async (req, res) => {
