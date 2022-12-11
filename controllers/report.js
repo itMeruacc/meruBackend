@@ -26,20 +26,24 @@ const generateReport = asyncHandler(async (req, res) => {
     // simply string ids to mongo ids
     if (projectIds) {
       projectIds = projectIds.map((id) => {
+        if (!id._id) return null;
         return mongoose.Types.ObjectId(id._id);
       });
     }
     if (userIds) {
       userIds = userIds.map((id) => {
+        if (!id._id) return null;
         return mongoose.Types.ObjectId(id._id);
       });
     }
+    console.log(clientIds);
     if (clientIds) {
       clientIds = clientIds.map((id) => {
+        if (id._id === null) return null;
         return mongoose.Types.ObjectId(id._id);
       });
     }
-    console.log(dateOne, dateTwo);
+    console.log(clientIds);
     // js dates, use new Date() in mongo to convert it to mongo dates
     if (!dateOne) dateOne = new Date(1970);
     if (!dateTwo) dateTwo = new Date();
@@ -57,26 +61,26 @@ const generateReport = asyncHandler(async (req, res) => {
     };
     if (diffDays > 31 && diffDays <= 120) {
       // weekly
-      console.log("weekly");
+      // console.log("weekly");
       datePipelineId = { $week: "$activityOn" };
       datePipelineIdProject = 1;
     } else if (diffDays > 120 && diffDays <= 365) {
       // monthly
-      console.log("monthly");
+      // console.log("monthly");
       datePipelineId = {
         month: { $month: "$activityOn" },
         year: { $year: "$activityOn" },
       };
     } else if (diffDays > 365) {
       // yearly
-      console.log("yearly");
+      // console.log("yearly");
       datePipelineId = {
         month: "month",
         year: { $year: "$activityOn" },
       };
     } else {
       // daily
-      console.log("daily");
+      // console.log("daily");
       datePipelineId = {
         day: { $dayOfMonth: "$activityOn" },
         month: { $month: "$activityOn" },
@@ -809,6 +813,7 @@ const saveReports = asyncHandler(async (req, res) => {
       includeApps,
       options,
     } = req.body;
+
     // very inefficient coz not proper default values in frontend
     if (!scheduleType[1]) {
       if (scheduleType[0] === "Weekly") {

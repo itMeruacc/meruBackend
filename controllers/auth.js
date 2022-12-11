@@ -78,6 +78,7 @@ const login = asyncHandler(async (req, res) => {
         email: user.email,
         role: user.role,
         config: user.config,
+        accountInfo: user.accountInfo,
         teamConfig,
         notifications: user.notifications,
       },
@@ -1010,9 +1011,12 @@ const downloadApp = asyncHandler(async (req, res) => {
 // @access  Public
 const updateTimeZone = asyncHandler(async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
-    user.accountInfo.timeZone = req.body.timeZone;
-    await user.save();
+    const user = await User.updateOne(
+      { _id: req.user._id },
+      {
+        "accountInfo.timeZone": req.body.timeZone,
+      }
+    );
     res.status(200).json({
       message: "Updated Succesfully",
     });
@@ -1038,6 +1042,7 @@ const desktopLogin = asyncHandler(async (req, res) => {
           lastName: user.lastName,
           email: user.email,
           role: user.role,
+          accountInfo,
           config: user.config,
           teamConfig,
         },
