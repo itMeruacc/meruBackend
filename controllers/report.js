@@ -36,24 +36,22 @@ const generateReport = asyncHandler(async (req, res) => {
         return mongoose.Types.ObjectId(id._id);
       });
     }
-    console.log(clientIds);
     if (clientIds) {
       clientIds = clientIds.map((id) => {
         if (id._id === null) return null;
         return mongoose.Types.ObjectId(id._id);
       });
     }
-    console.log(clientIds);
+
     // js dates, use new Date() in mongo to convert it to mongo dates
     if (!dateOne) dateOne = new Date(1970);
     if (!dateTwo) dateTwo = new Date();
 
-    // To calculate the time difference of two dates
+    // To calculate the no. of days between two dates
     const Difference_In_Time =
       new Date(dateTwo).getTime() - new Date(dateOne).getTime();
-
-    // To calculate the no. of days between two dates
     const diffDays = Difference_In_Time / (1000 * 3600 * 24);
+
     let datePipelineId;
     // needed coz bar graph in frontend cant take object for x axis
     let datePipelineIdProject = {
@@ -96,7 +94,6 @@ const generateReport = asyncHandler(async (req, res) => {
         ],
       };
     }
-    console.log(datePipelineIdProject);
 
     const activity = await Activity.aggregate([
       {
@@ -383,11 +380,13 @@ const generateReport = asyncHandler(async (req, res) => {
             {
               $unwind: {
                 path: "$client",
+                preserveNullAndEmptyArrays: true,
               },
             },
             {
               $unwind: {
                 path: "$project",
+                preserveNullAndEmptyArrays: true,
               },
             },
 
@@ -553,6 +552,7 @@ const generateReport = asyncHandler(async (req, res) => {
             {
               $unwind: {
                 path: "$client",
+                preserveNullAndEmptyArrays: true,
               },
             },
             {
@@ -566,6 +566,7 @@ const generateReport = asyncHandler(async (req, res) => {
             {
               $unwind: {
                 path: "$project",
+                preserveNullAndEmptyArrays: true,
               },
             },
             {
@@ -815,14 +816,14 @@ const saveReports = asyncHandler(async (req, res) => {
     } = req.body;
 
     // very inefficient coz not proper default values in frontend
-    if (!scheduleType[1]) {
-      if (scheduleType[0] === "Weekly") {
-        scheduleType[1] = "Monday";
-      }
-      if (scheduleType[0] === "Monthly") {
-        scheduleType[1] = 1;
-      }
-    }
+    // if (!scheduleType[1]) {
+    //   if (scheduleType[0] === "Weekly") {
+    //     scheduleType[1] = "Monday";
+    //   }
+    //   if (scheduleType[0] === "Monthly") {
+    //     scheduleType[1] = 1;
+    //   }
+    // }
 
     // if (!options.userIds) {
     //   options.userIds = "All Employees";

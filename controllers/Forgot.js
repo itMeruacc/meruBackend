@@ -1,7 +1,7 @@
 import sgMail from "@sendgrid/mail";
 import asyncHandler from "express-async-handler";
 import User from "../models/user.js";
-import generateToken from "../utils/generateToken.js";
+import generateToken, { generateForgotToken } from "../utils/generateToken.js";
 
 // @desc    Send Forgot Email
 // @route   Post /Forgot
@@ -12,15 +12,15 @@ const forgotPassword = asyncHandler(async (req, res) => {
     const email = await req.body.email;
     const user = await User.find({ email: email });
 
+    // send reset email
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
     const msg = {
       to: email,
       from: "it.meru02@gmail.com",
       subject: "Forgot Password",
       text: `Hey , visit this link to create a new Password  http://localhost:3000/passwordReset/${
         user[0]._id
-      }/${generateToken(user[0]._id)}`,
+      }/${generateForgotToken(user[0]._id)}`,
     };
     if (typeof user[0] !== "undefined" && user[0] !== null) {
       var statusCode;

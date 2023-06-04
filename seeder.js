@@ -20,10 +20,10 @@ connectDB();
 
 const importData = asyncHandler(async () => {
   try {
-    // await AdminConfig.create({});
+    await AdminConfig.create({});
 
-    await User.deleteMany();
-    await User.insertMany(users);
+    // await User.deleteMany();
+    // await User.insertMany(users);
     console.log(`Data imported`.green.inverse);
     process.exit(0);
   } catch (error) {
@@ -34,12 +34,12 @@ const importData = asyncHandler(async () => {
 
 const destroyData = asyncHandler(async () => {
   try {
-    // await User.deleteMany();
-    await Client.deleteMany();
-    await Project.deleteMany();
-    await Team.deleteMany();
-    await Activity.deleteMany();
-    await Screenshot.deleteMany();
+    await User.deleteMany();
+    // await Client.deleteMany();
+    // await Project.deleteMany();
+    // await Team.deleteMany();
+    // await Activity.deleteMany();
+    // await Screenshot.deleteMany();
 
     console.log(`Data destroyed`.red.inverse);
     process.exit(0);

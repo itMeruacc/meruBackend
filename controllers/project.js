@@ -97,6 +97,11 @@ const getProjectsByClients = asyncHandler(async (req, res) => {
             name: "$client.name",
           },
         },
+        {
+          $sort: {
+            name: 1,
+          },
+        },
       ],
     ]);
 
