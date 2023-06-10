@@ -4,11 +4,15 @@ import {
   sendNotification,
   readNotification,
   deleteNotification,
+  getNotifications,
 } from "../controllers/notification.js";
 
 const router = express.Router();
 
-router.route("/").post(authPass, sendNotification);
+router
+  .route("/")
+  .get(authPass, getNotifications)
+  .post(authPass, sendNotification);
 router
   .route("/:id")
   .patch(authPass, readNotification)
