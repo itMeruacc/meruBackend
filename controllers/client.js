@@ -284,6 +284,12 @@ const deleteClientById = asyncHandler(async (req, res) => {
       { $set: { client: null } }
     );
 
+    // set all activities clients to null
+    await Activity.updateMany(
+      { _id: { $in: client.activities } },
+      { $set: { client: null } }
+    );
+
     // delete the client
     await Client.findByIdAndRemove(clientId);
 

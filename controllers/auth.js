@@ -1,13 +1,13 @@
 import User from "../models/user.js";
 import Activity from "../models/activity.js";
+import AdminConfig from "../models/adminConfig.js";
 import generateToken from "../utils/generateToken.js";
 import asyncHandler from "express-async-handler";
+import mongoose from "mongoose";
 import fs from "fs";
 import { AccessControl } from "accesscontrol";
 import { grantsObject } from "../utils/permissions.js";
-
 import dayjs from "dayjs";
-// import { mongoose } from "mongoose";
 
 // @desc    Register new user
 // @route   POST /register
@@ -65,7 +65,8 @@ const login = asyncHandler(async (req, res) => {
     throw new Error("Missing credentials");
   }
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).populate("notifications");
+  const teamConfig = await AdminConfig.findOne();
 
   if (user && (await user.matchPassword(password))) {
     res.status(200).json({
@@ -76,6 +77,10 @@ const login = asyncHandler(async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         role: user.role,
+        config: user.config,
+        accountInfo: user.accountInfo,
+        teamConfig,
+        notifications: user.notifications,
       },
       token: generateToken(user._id),
     });
@@ -625,7 +630,6 @@ const teamCommondata = asyncHandler(async (req, res) => {
 // @desc    Generate Report
 // @route   GET /report
 // @access  Private
-import mongoose from "mongoose";
 const generateReportByIds = asyncHandler(async (req, res) => {
   try {
     let { clientIds, projectIds, userIds, dateOne, dateTwo } = req.body;
@@ -1007,12 +1011,47 @@ const downloadApp = asyncHandler(async (req, res) => {
 // @access  Public
 const updateTimeZone = asyncHandler(async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
-    user.accountInfo.timeZone = req.body.timeZone;
-    await user.save();
+    const user = await User.updateOne(
+      { _id: req.user._id },
+      {
+        "accountInfo.timeZone": req.body.timeZone,
+      }
+    );
     res.status(200).json({
       message: "Updated Succesfully",
     });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// @desc    Desktop login
+// @route   post /desktopLogin
+// @access  Public
+const desktopLogin = asyncHandler(async (req, res) => {
+  try {
+    console.log("ehllos");
+    const user = await User.findById(req.user._id);
+    const teamConfig = await AdminConfig.findOne();
+    if (user) {
+      res.status(200).json({
+        status: "success",
+        user: {
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role,
+          accountInfo,
+          config: user.config,
+          teamConfig,
+        },
+        token: generateToken(user._id),
+      });
+    } else {
+      res.status(400);
+      throw new Error("Invalid email or password");
+    }
   } catch (error) {
     throw new Error(error);
   }
@@ -1028,4 +1067,5 @@ export {
   generateReportByIds,
   roleCheck,
   updateTimeZone,
+  desktopLogin,
 };

@@ -4,6 +4,7 @@ import Project from "../models/project.js";
 import Team from "../models/team.js";
 import mongoose from "mongoose";
 import Activity from "../models/activity.js";
+import AdminConfig from "../models/adminConfig.js";
 import dayjs from "dayjs";
 import asyncHandler from "express-async-handler";
 
@@ -19,20 +20,14 @@ const ac = new AccessControl(grantsObject);
 // @access  Private
 
 const getAllEmployee = asyncHandler(async (req, res) => {
-  const permission = ac.can(req.user.role).readOwn("members");
-  if (permission.granted) {
-    try {
-      const users = await User.find().select("_id firstName lastName");
-      res.status(200).json({
-        messsage: "Success",
-        data: users,
-      });
-    } catch (error) {
-      throw new Error(error);
-    }
-  } else {
-    // resource is forbidden for this user/role
-    res.status(403).end("UnAuthorized");
+  try {
+    const users = await User.find().select("_id firstName lastName");
+    res.status(200).json({
+      messsage: "Success",
+      data: users,
+    });
+  } catch (error) {
+    throw new Error(error);
   }
 });
 
@@ -241,4 +236,37 @@ const changeCurrency = asyncHandler(async (req, res) => {
   }
 });
 
-export { getAllEmployee, getAllTeams, adminCommondata, changeCurrency };
+// @desc    Update team settings
+// @route   PATCH /config
+// @access  Private
+const updateConfig = asyncHandler(async (req, res) => {
+  try {
+    console.log(req.body);
+    const { employeeId, config: newConfig } = req.body;
+
+    if (!employeeId) {
+      await AdminConfig.findOneAndUpdate({}, newConfig);
+    } else {
+      const { config } = await User.findById(employeeId);
+      const user = await User.updateOne(
+        { _id: mongoose.Types.ObjectId(employeeId) },
+        {
+          $set: { config: { ...config, ...newConfig } },
+        }
+      );
+    }
+    res.status(200).json({
+      messsage: "Success",
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+export {
+  getAllEmployee,
+  getAllTeams,
+  adminCommondata,
+  changeCurrency,
+  updateConfig,
+};

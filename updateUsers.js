@@ -18,13 +18,11 @@ dotenv.config({ path: "./config/config.env" });
 
 connectDB();
 
-const importData = asyncHandler(async () => {
+const updateUsers = asyncHandler(async () => {
   try {
-    await AdminConfig.create({});
+    await User.updateMany({ "accountInfo.timeZone": "Asia/Kolkata" });
 
-    // await User.deleteMany();
-    // await User.insertMany(users);
-    console.log(`Data imported`.green.inverse);
+    console.log(`Users updated`.red.inverse);
     process.exit(0);
   } catch (error) {
     console.log(`${error}`.red.inverse);
@@ -32,21 +30,4 @@ const importData = asyncHandler(async () => {
   }
 });
 
-const destroyData = asyncHandler(async () => {
-  try {
-    await User.deleteMany();
-    // await Client.deleteMany();
-    // await Project.deleteMany();
-    // await Team.deleteMany();
-    // await Activity.deleteMany();
-    // await Screenshot.deleteMany();
-
-    console.log(`Data destroyed`.red.inverse);
-    process.exit(0);
-  } catch (error) {
-    console.log(`${error}`.red.inverse);
-    process.exit(1);
-  }
-});
-
-process.argv[2] === "-d" ? destroyData() : importData();
+updateUsers();

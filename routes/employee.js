@@ -9,12 +9,14 @@ import {
   getEmployeeDetails,
   getDashboardData,
   getAllEmployees,
+  editManagerFor,
 } from "../controllers/employee.js";
 
 const router = express.Router();
 
 // get dashboard data
 router.route("/dashboard/all").get(authPass, getDashboardData);
+
 // get all employees
 router.route("/all").get(authPass, getAllEmployees);
 
@@ -31,5 +33,8 @@ router
   .delete(authPass, deleteEmployee);
 router.route("/employeeInfo/:id").post(getEmployeeDetails);
 router.route("/edit/:id").patch(authPass, editEmployee);
+
+// edit manager for
+router.route("/manager/:id").patch(authPass, editManagerFor);
 
 export default router;

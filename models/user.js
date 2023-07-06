@@ -1,16 +1,5 @@
-import mongoose from "mongoose";
+import mongoose, { SchemaTypes } from "mongoose";
 import bcrypt from "bcrypt";
-
-const notificationSchema = new mongoose.Schema(
-  {
-    title: { type: String, required: true },
-    description: { type: String, required: true },
-    avatar: String,
-    type: { type: String, required: true },
-    isUnRead: { type: Boolean, default: true },
-  },
-  { timestamps: true }
-);
 
 const userSchema = new mongoose.Schema(
   {
@@ -35,6 +24,7 @@ const userSchema = new mongoose.Schema(
       // add time zone as in mongo aggregation
       timeZone: { type: String, default: "IST" },
     },
+    managerFor: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     projects: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -57,7 +47,30 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "null",
     },
-    notifications: [notificationSchema],
+    notifications: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Notification" },
+    ],
+
+    config: {
+      autoPauseMinutes: { type: mongoose.Schema.Types.Mixed, default: null },
+      screensConfig: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null,
+      },
+      disableOfflineTime: { type: mongoose.Schema.Types.Mixed, default: null },
+      disableScreenshotNotification: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null,
+      },
+      disableActivityLevel: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null,
+      },
+      currency: { type: mongoose.Schema.Types.Mixed, default: "Rs. " },
+      weeklyLimit: { type: mongoose.Schema.Types.Mixed, default: null },
+      weekStartDay: { type: mongoose.Schema.Types.Mixed, default: null },
+      disableAppTracking: { type: mongoose.Schema.Types.Mixed, default: null },
+    },
     settings: {
       ScreenShotPerHour: {
         isTeamSetting: { type: Boolean, required: true, default: true },
@@ -109,12 +122,8 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 7776000,
     },
-    days: [
-      {
-        date: { type: String, default: "0" },
-        dailyHours: { type: Number, default: 0 },
-        activities: [{ type: mongoose.Types.ObjectId, ref: "Activity" }],
-      },
+    activities: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Activity", default: [] },
     ],
   },
   { timestamps: true }

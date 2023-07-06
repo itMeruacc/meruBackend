@@ -30,117 +30,87 @@ const dayNames = [
 // delete report function
 // a function to combine these all
 
-schedule.scheduleJob(`20 31 14 * * *`, async () => {
-  console.log("scheduling");
-  // looking for reports every minute now, we only need to look once a day to avoid multiple schedules.
+schedule.scheduleJob(`*/30 * * * * *`, async () => {
+  // TODO: looking for reports every minute now, we only need to look once an hour to avoid multiple schedules.
   // match by schedule true
   // match by todays day, date.
-  const dayName = dayNames[dayjs().day()];
-  const dayNo = dayjs().date();
-  const schedules = await Reports.aggregate([
+  const currWeekDay = dayjs().day();
+  const currHour = new Date().getHours();
+  const currMonthDay = new Date().getDate();
+  let schedules = await Reports.aggregate([
     {
       $match: {
-        $expr: {
-          $and: [
-            {
-              $eq: ["$schedule", true],
-            },
-            {
-              $eq: [
-                "$user",
-                mongoose.Types.ObjectId("62431c112ef0d76927367c0c"),
-              ],
-            },
-
-            {
-              $or: [
-                {
-                  $eq: [{ $arrayElemAt: ["$scheduleType", 0] }, "Daily"],
-                },
-                {
-                  $switch: {
-                    branches: [
-                      {
-                        case: {
-                          $eq: [
-                            { $arrayElemAt: ["$scheduleType", 0] },
-                            "Weekly",
-                          ],
-                        },
-                        then: {
-                          $eq: [
-                            { $arrayElemAt: ["$scheduleType", 1] },
-                            dayName,
-                          ],
-                        },
-                      },
-                      {
-                        case: {
-                          $eq: [
-                            { $arrayElemAt: ["$scheduleType", 0] },
-                            "Monthly",
-                          ],
-                        },
-                        then: {
-                          $eq: [{ $arrayElemAt: ["$scheduleType", 1] }, dayNo],
-                        },
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          ],
-        },
+        $and: [{ cronString: { $exists: true } }, { schedule: true }],
       },
     },
-    {
-      $lookup: {
-        from: "users",
-        localField: "user",
-        foreignField: "_id",
-        as: "user",
-      },
-    },
-    {
-      $unwind: {
-        path: "$user",
-        includeArrayIndex: "string",
-        preserveNullAndEmptyArrays: true,
-      },
-    },
+    // {
+    //   $lookup: {
+    //     from: "users",
+    //     localField: "user",
+    //     foreignField: "_id",
+    //     as: "user",
+    //   },
+    // },
+    // {
+    //   $unwind: {
+    //     path: "$user",
+    //     includeArrayIndex: "string",
+    //     preserveNullAndEmptyArrays: true,
+    //   },
+    // },
   ]);
-  // cron single time each schedule(report)
-  console.log(schedules.length);
-  schedules.map(async (sched) => {
-    // making a new date for cron to run only once.
-    const time1 = Number(sched.scheduleType[2].split(":")[0]);
-    const time2 = Number(sched.scheduleType[2].split(":")[1]);
-    const date = new Date(2022, 3, 15, time1, time2, 0);
-    console.log(time1, time2);
-    console.log(date);
-    schedule.scheduleJob(date, async function () {
-      try {
-        // generate report from the scheduled report to save the json file
-        let reports = await generateReport({
-          body: { dateRange: sched.scheduleType[0], ...sched.options },
-        });
-        console.log("generated");
-        // save the report with appropriate url
-        let saved = await saveReports({
-          body: { ...sched, reports, userId: sched.user._id },
-        });
-        console.log(saved.url);
 
-        // generate pdf
-        const browser = await puppeteer.launch();
-        const page = await browser.newPage();
-        await page.goto(
-          `http://localhost:3000/downloadReportPdf/${saved.url}`,
-          {
-            waitUntil: "networkidle2",
-          }
-        );
+  // TODO: turn on filter
+  // filter out schedules based on current hour to send emails
+  // schedules = schedules.filter((schedule) => {
+  //   const splitCron = schedule.cronString.split(" ");
+  //   const hour = splitCron[1];
+  //   const monthDay = splitCron[2];
+  //   const weekDay = splitCron[4];
+
+  //   if (splitCron[4] === "*" && splitCron[2] === "*") {
+  //     // checking only for Daily
+  //     return hour === currHour;
+  //   }
+  //   if (splitCron[4] === "*" && splitCron[2] !== "*") {
+  //     // monthly
+  //     return hour === currHour && monthDay === currMonthDay;
+  //   }
+  //   if (splitCron[4] !== "*" && splitCron[2] === "*") {
+  //     // weekly
+  //     return hour === currHour && weekDay === currWeekDay;
+  //   }
+  // });
+
+  schedules.map(async (sched, i) => {
+    try {
+      if (i != 0) return;
+
+      // generate reports
+      let reports = await generateReport({
+        body: { ...sched.options },
+      });
+
+      // TODO: check save reports once
+
+      // save reports
+      let saved = await saveReports({
+        body: { ...sched, reports, userId: sched.user._id },
+      });
+
+      // TODO: setup download pdf
+      // generate pdf
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ["--no-sandbox"],
+      });
+      const page = await browser.newPage();
+      await page.goto(`http://localhost:3000/downloadReportPdf/${saved.url}`, {
+        waitUntil: "networkidle0",
+      });
+
+      // pausing for 2 secs for full rendering of the react components
+      new Promise((resolve) => setTimeout(resolve, 5000)).then(async () => {
         await page.setViewport({ width: 1680, height: 1050 });
         let uniquePdf = uuidv4();
         await page.pdf({
@@ -149,15 +119,18 @@ schedule.scheduleJob(`20 31 14 * * *`, async () => {
         });
 
         // mail the pdf
-        browser.close().then(mail(uniquePdf, sched.scheduledEmail));
-        // console.log("sent");
+        browser.close().then(mail(uniquePdf, sched.scheduledMail));
+        // mail("tempPdf", "it.meru02@gmail.com");
+        console.log("sent");
+
+        // TODO: check delete function
         // delete the saved report and pdf
         deleteReports(saved.url);
         deletePdf(uniquePdf);
-      } catch (err) {
-        console.log(err);
-      }
-    });
+      });
+    } catch (error) {
+      console.log(error);
+    }
   });
 });
 
@@ -165,7 +138,8 @@ const generateReport = asyncHandler(async (req, res) => {
   try {
     let { clientIds, projectIds, userIds, dateOne, dateTwo, groupBy } =
       req.body;
-    let { dateRange } = req.body;
+
+    // simply string ids to mongo ids
     if (projectIds) {
       projectIds = projectIds.map((id) => {
         return mongoose.Types.ObjectId(id._id);
@@ -181,18 +155,53 @@ const generateReport = asyncHandler(async (req, res) => {
         return mongoose.Types.ObjectId(id._id);
       });
     }
+    // js dates, use new Date() in mongo to convert it to mongo dates
+    if (!dateOne) dateOne = new Date(1970);
+    if (!dateTwo) dateTwo = new Date();
 
-    if (dateRange === "Daily") {
-      dateOne = dayjs().format("DD/MM/YYYY");
-      dateTwo = dayjs().format("DD/MM/YYYY");
-    }
-    if (dateRange === "Weekly") {
-      dateOne = dayjs().startOf("week").format("DD/MM/YYYY");
-      dateTwo = dayjs().format("DD/MM/YYYY");
-    }
-    if (dateRange === "Monthly") {
-      dateOne = dayjs().startOf("month").format("DD/MM/YYYY");
-      dateTwo = dayjs().format("DD/MM/YYYY");
+    // To calculate the time difference of two dates
+    const Difference_In_Time =
+      new Date(dateTwo).getTime() - new Date(dateOne).getTime();
+
+    // To calculate the no. of days between two dates
+    const diffDays = Difference_In_Time / (1000 * 3600 * 24);
+    let datePipelineId;
+    // needed coz bar graph in frontend cant take object for x axis
+    let datePipelineIdProject = {
+      $concat: [{ $toString: "$_id.month" }, "/", { $toString: "$_id.year" }],
+    };
+    if (diffDays > 31 && diffDays <= 120) {
+      // weekly
+      datePipelineId = { $week: "$activityOn" };
+      datePipelineIdProject = 1;
+    } else if (diffDays > 120 && diffDays <= 365) {
+      // monthly
+      datePipelineId = {
+        month: { $month: "$activityOn" },
+        year: { $year: "$activityOn" },
+      };
+    } else if (diffDays > 365) {
+      // yearly
+      datePipelineId = {
+        month: "month",
+        year: { $year: "$activityOn" },
+      };
+    } else {
+      // daily
+      datePipelineId = {
+        day: { $dayOfMonth: "$activityOn" },
+        month: { $month: "$activityOn" },
+        year: { $year: "$activityOn" },
+      };
+      datePipelineIdProject = {
+        $concat: [
+          { $toString: "$_id.day" },
+          "/",
+          { $toString: "$_id.month" },
+          "/",
+          { $toString: "$_id.year" },
+        ],
+      };
     }
 
     const activity = await Activity.aggregate([
@@ -230,51 +239,30 @@ const generateReport = asyncHandler(async (req, res) => {
               {
                 $and: [
                   {
-                    $ne: ["$activityOn", ""],
+                    $gte: ["$activityOn", new Date(dateOne.toString())],
                   },
                   {
-                    $ne: ["$activityOn", "null"],
-                  },
-                  {
-                    $ne: ["$activityOn", null],
-                  },
-                  {
-                    $gte: [
-                      {
-                        $dateFromString: {
-                          dateString: "$activityOn",
-                          format: "%d/%m/%Y",
-                          onNull: new Date(0),
-                        },
-                      },
-                      {
-                        $dateFromString: {
-                          dateString: dateOne,
-                          format: "%d/%m/%Y",
-                          onNull: new Date(0),
-                        },
-                      },
-                    ],
-                  },
-                  {
-                    $lte: [
-                      {
-                        $dateFromString: {
-                          dateString: "$activityOn",
-                          format: "%d/%m/%Y",
-                        },
-                      },
-                      {
-                        $dateFromString: {
-                          dateString: dateTwo,
-                          format: "%d/%m/%Y",
-                        },
-                      },
-                    ],
+                    $lte: ["$activityOn", new Date(dateTwo.toString())],
                   },
                 ],
               },
             ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          week: {
+            $week: "$activityOn",
+          },
+          month: {
+            $month: "$activityOn",
+          },
+          year: {
+            $year: "$activityOn",
+          },
+          consumeTime: {
+            $subtract: ["$endTime", "$startTime"],
           },
         },
       },
@@ -612,7 +600,7 @@ const generateReport = asyncHandler(async (req, res) => {
           byDates: [
             {
               $group: {
-                _id: "$activityOn",
+                _id: datePipelineId,
                 internal: {
                   $sum: { $cond: ["$isInternal", "$consumeTime", 0] },
                 },
@@ -622,6 +610,27 @@ const generateReport = asyncHandler(async (req, res) => {
                 actCount: { $sum: 1 },
                 totalHours: { $sum: "$consumeTime" },
                 avgPerformanceData: { $avg: "$performanceData" },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                actCount: 1,
+                internal: 1,
+                external: 1,
+                totalHours: 1,
+                avgPerformanceData: 1,
+              },
+            },
+            { $sort: { _id: 1 } },
+            {
+              $project: {
+                _id: datePipelineIdProject,
+                actCount: 1,
+                internal: 1,
+                external: 1,
+                totalHours: 1,
+                avgPerformanceData: 1,
               },
             },
           ],
@@ -886,13 +895,16 @@ const generateReport = asyncHandler(async (req, res) => {
     throw new Error(error);
   }
 });
-
 const saveReports = asyncHandler(async (req, res) => {
   try {
     let {
-      userId,
-      share,
       url,
+      userId,
+      cronString,
+      scheduleEmail,
+      schedule,
+      scheduleType,
+      share,
       reports,
       name,
       includeSS,
@@ -901,6 +913,17 @@ const saveReports = asyncHandler(async (req, res) => {
       includeApps,
       options,
     } = req.body;
+
+    // very inefficient coz not proper default values in frontend
+    if (!scheduleType[1]) {
+      if (scheduleType[0] === "Weekly") {
+        scheduleType[1] = "Monday";
+      }
+      if (scheduleType[0] === "Monthly") {
+        scheduleType[1] = 1;
+      }
+    }
+
     // change url for a new url to be generated
     url = uuidv4();
     reports = reports;
@@ -990,8 +1013,8 @@ const mail = (uniquePdf, email) => {
   let attachment = fs.readFileSync(pathToAttachment).toString("base64");
 
   const msg = {
-    // to: "it.meru02@gmail.com",
-    // from: "it.meru02@gmail.com",
+    to: "it.meru02@gmail.com",
+    from: "it.meru02@gmail.com",
     subject: "Sending with SendGrid is Fun",
     text: "and easy to do anywhere, even with Node.js",
     attachments: [

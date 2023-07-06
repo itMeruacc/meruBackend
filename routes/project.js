@@ -33,8 +33,7 @@ router.route("/:id/:editType").patch(authPass, editProjectById);
 router.route("/getTime/:id").get(authPass, getProjectTimeById);
 
 // edit members by id
-router.route("/addMember/:id").post(authPass, addMember);
-
-router.route("/removeMember/:id").patch(authPass, removeMember);
+router.route("/members/add/:id").patch(authPass, addMember);
+router.route("/members/remove/:id").patch(authPass, removeMember);
 
 export default router;

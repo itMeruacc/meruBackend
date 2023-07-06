@@ -97,6 +97,11 @@ const getProjectsByClients = asyncHandler(async (req, res) => {
             name: "$client.name",
           },
         },
+        {
+          $sort: {
+            name: 1,
+          },
+        },
       ],
     ]);
 
@@ -117,7 +122,7 @@ const getProjects = asyncHandler(async (req, res) => {
     const user = req.user;
 
     // find user and look up join all the projects
-    const [data] = await User.aggregate([
+    const data = await User.aggregate([
       {
         $match: {
           _id: mongoose.Types.ObjectId(user._id),
@@ -131,11 +136,116 @@ const getProjects = asyncHandler(async (req, res) => {
           as: "projects",
         },
       },
+      {
+        $unwind: {
+          path: "$projects",
+          includeArrayIndex: "string",
+        },
+      },
+      {
+        $group: {
+          _id: "$projects._id",
+          client: {
+            $first: "$projects.client",
+          },
+          name: {
+            $first: "$projects.name",
+          },
+          activities: {
+            $first: "$projects.activities",
+          },
+          budget: {
+            $first: "$projects.budget",
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "clients",
+          localField: "client",
+          foreignField: "_id",
+          as: "client",
+        },
+      },
+      {
+        $unwind: {
+          path: "$client",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "activities",
+          let: {
+            actIds: "$activities",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    {
+                      $in: ["$_id", "$$actIds"],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $addFields: {
+                week: {
+                  $week: "$activityOn",
+                },
+                month: {
+                  $month: "$activityOn",
+                },
+                year: {
+                  $year: "$activityOn",
+                },
+                consumeTime: {
+                  $subtract: ["$endTime", "$startTime"],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                consumeTime: {
+                  $sum: "$consumeTime",
+                },
+              },
+            },
+          ],
+          as: "time",
+        },
+      },
+      {
+        $unwind: {
+          path: "$time",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          consumeTime: "$time.consumeTime",
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          _id: 1,
+          budget: 1,
+          consumeTime: { $ifNull: ["$consumeTime", 0] },
+          client: {
+            $ifNull: ["$client", null],
+          },
+        },
+      },
     ]);
 
     res.status(200).json({
       status: "Successfully fetched projects",
-      data: data ? data.projects : [],
+      data: data ?? [],
     });
   } catch (error) {
     throw new Error(error);
@@ -196,6 +306,7 @@ const getProjectById = asyncHandler(async (req, res) => {
           "projectLeader._id": 1,
           "client.name": 1,
           "client._i": 1,
+          employees: 1,
         },
       },
     ]);
@@ -295,6 +406,12 @@ const deleteProjectById = asyncHandler(async (req, res) => {
       { $pull: { projects: mongoose.Types.ObjectId(projectId) } }
     );
 
+    // set all activities projects to null
+    await Activity.updateMany(
+      { _id: { $in: project.activities } },
+      { $set: { project: null } }
+    );
+
     // delete the project
     project = await Project.findByIdAndRemove(projectId);
 
@@ -307,69 +424,47 @@ const deleteProjectById = asyncHandler(async (req, res) => {
   }
 });
 
-//////////////////////////////////////////////////////////////////////////////////
 // @desc    Add employee to project by id
-// @route   PATCH /project/addMember/:id
+// @route   PATCH /project/members/add/:id
 // @access  Private
 const addMember = asyncHandler(async (req, res) => {
-  const { employeeId } = req.body;
-  const projectId = req.params.id;
-  let alreadyMember = false;
-  let alreadyProjectAdded = false;
   try {
+    const { employeeId } = req.body;
+    const projectId = req.params.id;
+
+    // check for valid project
     const project = await Project.findById(projectId);
     if (!project) {
       res.status(404);
       throw new Error("Project not found");
     }
 
+    // check for valid employee
     const newEmployee = await User.findById(employeeId);
     if (!newEmployee) {
       res.status(404);
       throw new Error("No such employee found");
     }
 
-    if (project.employees.includes(employeeId)) alreadyMember = true;
+    await User.updateOne(
+      { _id: employeeId },
+      {
+        $addToSet: {
+          projects: projectId,
+        },
+      }
+    );
+    await Project.updateOne(
+      { _id: projectId },
+      {
+        $addToSet: {
+          employees: employeeId,
+        },
+      }
+    );
 
-    // project.employees.forEach((employee) => {
-    //   if (employee.equals(employeeId)) {
-    //     alreadyMember = true;
-    //   }
-    // });
-
-    if (alreadyMember) {
-      return res.status(200).json({
-        status: "Already A Member",
-        data: project,
-      });
-    }
-
-    if (newEmployee.projects.includes(project._id)) alreadyProjectAdded = true;
-    // newEmployee.projects.forEach((id) => {
-    //   if (id.equals(project._id)) {
-    //     alreadyProjectAdded = true;
-    //   }
-    // });
-
-    if (!alreadyProjectAdded) {
-      newEmployee.projects.push(projectId);
-      await newEmployee.save();
-    }
-
-    //notification for the employee
-    const notification = {
-      title: "New Project",
-      description: `Added to the team ${project.name}`,
-      avatar: "if there is some avatar",
-      type: "projects",
-    };
-    newEmployee.notifications = [notification, ...newEmployee.notifications];
-    await newEmployee.save();
-    project.employees.push(employeeId);
-    await project.save();
     res.status(201).json({
       status: "ok",
-      data: project,
     });
   } catch (error) {
     throw new Error(error);
@@ -497,51 +592,50 @@ const getProjectTimeById = asyncHandler(async (req, res) => {
 });
 
 // @desc    Remove employee from project by id
-// @route   PATCH /project/removeMember/:id
+// @route   PATCH /project//members/remove/:id
 // @access  Private
 const removeMember = asyncHandler(async (req, res) => {
-  const permission = ac.can(req.user.role).updateOwn("project");
-  if (permission.granted) {
-    try {
-      const { employeeId } = req.body;
-      const projectId = req.params.id;
-      const project = await Project.findById(projectId);
-      if (!project) {
-        res.status(404);
-        throw new Error(`Not found project ${projectId}`);
-      }
-      const employee = await User.findById(employeeId);
-      if (!employee) {
-        res.status(404);
-        throw new Error(`Not found employee ${employeeId}`);
-      }
-
-      if (project.projectLeader?._id.toHexString() === employeeId) {
-        project.projectLeader = undefined;
-      }
-
-      project.employees = project.employees.filter(
-        (id) => id.toHexString() !== employeeId
-      );
-
-      employee.projects = employee.projects.filter(
-        (id) => id.toHexString() !== projectId
-      );
-
-      await employee.save();
-      await project.save();
-      res.status(200).json({
-        status: "success",
-        data: project,
-      });
-    } catch (error) {
-      throw new Error(error);
+  try {
+    const { employeeId } = req.body;
+    const projectId = req.params.id;
+    // check for valid project
+    const project = await Project.findById(projectId);
+    if (!project) {
+      res.status(404);
+      throw new Error(`Not found project ${projectId}`);
     }
-  } else {
-    res.status(403).end("UnAuthorized");
+    // check for valid user
+    const employee = await User.findById(employeeId);
+    if (!employee) {
+      res.status(404);
+      throw new Error(`Not found employee ${employeeId}`);
+    }
+
+    await User.updateOne(
+      { _id: employeeId },
+      {
+        $pull: {
+          projects: projectId,
+        },
+      }
+    );
+    await Project.updateOne(
+      { _id: projectId },
+      {
+        $pull: {
+          employees: employeeId,
+        },
+      }
+    );
+
+    res.status(200).json({
+      status: "success",
+      data: project,
+    });
+  } catch (error) {
+    throw new Error(error);
   }
 });
-//////////////////////////////////////////////////////////////////////////////////
 
 export {
   createProject,

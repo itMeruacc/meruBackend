@@ -17,25 +17,19 @@ const ac = new AccessControl(grantsObject);
 // @access  Private
 
 const getEmployeeById = asyncHandler(async (req, res) => {
-  const permission = ac.can(req.user.role).readOwn("members");
-  if (permission.granted) {
-    try {
-      const { id } = req.params;
-      const employee = await User.findById(id);
-      if (!employee) {
-        res.status(404);
-        throw new Error(`Employee not found `);
-      }
-      res.status(200).json({
-        status: "Ok",
-        data: employee,
-      });
-    } catch (error) {
-      throw new Error(error);
+  try {
+    const { id } = req.params;
+    const employee = await User.findById(id);
+    if (!employee) {
+      res.status(404);
+      throw new Error(`Employee not found `);
     }
-  } else {
-    // resource is forbidden for this user/role
-    res.status(403).end("UnAuthorized");
+    res.status(200).json({
+      status: "Ok",
+      data: employee,
+    });
+  } catch (error) {
+    throw new Error(error);
   }
 });
 import dayjs from "dayjs";
@@ -302,37 +296,56 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 // @route   PATCH /edit/:id
 // @access  Private
 const editEmployee = asyncHandler(async (req, res) => {
-  // console.log("Inside Route");
-  const permission = ac.can(req.user.role).updateOwn("members");
-  const currentUser = req.user;
-  if (permission.granted) {
-    const employeeId = req.params.id;
-    const filteredBody = permission.filter(req.body);
-    try {
-      const user = await User.findByIdAndUpdate(employeeId, filteredBody);
-      user.save();
-      res.json({
-        message: "User Updated",
-        data: user,
-      });
-    } catch (error) {
-      console.log(error);
-      throw new Error(error);
-    }
-  } else {
-    // resource is forbidden for this user/role
-    res.status(403).end("UnAuthorized");
+  const employeeId = req.params.id;
+  try {
+    const user = await User.findByIdAndUpdate(employeeId, req.body);
+
+    user.save();
+    res.json({
+      message: "User Updated",
+      data: user,
+    });
+  } catch (error) {
+    console.log(error);
+    throw new Error(error);
   }
 });
 
 // @desc    Get dashboard data
-// @route   GET /dashboard
+// @route   GET /dashboard/all
 // @access  Private
 const getDashboardData = asyncHandler(async (req, res, next) => {
   try {
+    const user = await User.findById(req.user._id);
+    console.log(user.role);
+    const date = new Date(new Date().setHours(0, 0, 0, 0)).toString();
+
+    let userIds = [];
+    if (user.role === "employee" || user.role === "projectLeader")
+      userIds = [mongoose.Types.ObjectId(req.user.id)];
+    if (user.role === "manager") {
+      userIds = user.managerFor;
+      userIds.push(user._id);
+    }
+    console.log(user.role);
+    if (user.role === "admin") {
+      userIds = await User.aggregate([
+        {
+          $match: {},
+        },
+        {
+          $project: { _id: 1 },
+        },
+      ]);
+      console.log(userIds);
+      userIds = userIds.map((user) => user._id);
+    }
+
     const users = await User.aggregate([
       {
-        $match: {},
+        $match: {
+          _id: { $in: userIds },
+        },
       },
       {
         $lookup: {
@@ -354,6 +367,9 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
             },
             {
               $addFields: {
+                consumeTime: {
+                  $subtract: ["$endTime", "$startTime"],
+                },
                 week: {
                   $week: "$activityOn",
                 },
@@ -362,6 +378,9 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                 },
                 year: {
                   $year: "$activityOn",
+                },
+                day: {
+                  $dayOfYear: "$activityOn",
                 },
               },
             },
@@ -377,9 +396,7 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                             $eq: [
                               "$month",
                               {
-                                $month: new Date(
-                                  "Sun, 25 Sep 2022 16:07:33 GMT"
-                                ),
+                                $month: new Date(date),
                               },
                             ],
                           },
@@ -387,9 +404,7 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                             $eq: [
                               "$year",
                               {
-                                $year: new Date(
-                                  "Sun, 25 Sep 2022 16:07:33 GMT"
-                                ),
+                                $year: new Date(date),
                               },
                             ],
                           },
@@ -409,9 +424,7 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                             $eq: [
                               "$week",
                               {
-                                $week: new Date(
-                                  "Sun, 25 Sep 2022 16:07:33 GMT"
-                                ),
+                                $week: new Date(date),
                               },
                             ],
                           },
@@ -419,9 +432,7 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                             $eq: [
                               "$month",
                               {
-                                $month: new Date(
-                                  "Sun, 25 Sep 2022 16:07:33 GMT"
-                                ),
+                                $month: new Date(date),
                               },
                             ],
                           },
@@ -429,9 +440,7 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                             $eq: [
                               "$year",
                               {
-                                $year: new Date(
-                                  "Sun, 25 Sep 2022 16:07:33 GMT"
-                                ),
+                                $year: new Date(date),
                               },
                             ],
                           },
@@ -448,9 +457,18 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                       {
                         $and: [
                           {
-                            $eq: [
+                            $gte: ["$activityOn", new Date(date)],
+                          },
+                          {
+                            $lte: [
                               "$activityOn",
-                              new Date("Sun, 25 Sep 2022 16:07:33 GMT"),
+                              {
+                                $dateAdd: {
+                                  startDate: new Date(date),
+                                  unit: "day",
+                                  amount: 1,
+                                },
+                              },
                             ],
                           },
                         ],
@@ -466,16 +484,19 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
                       {
                         $and: [
                           {
-                            $eq: [
+                            $gte: [
                               "$activityOn",
                               {
                                 $dateSubtract: {
-                                  startDate: "$activityOn",
+                                  startDate: new Date(date),
                                   unit: "day",
                                   amount: 1,
                                 },
                               },
                             ],
+                          },
+                          {
+                            $lte: ["$activityOn", new Date(date)],
                           },
                         ],
                       },
@@ -493,7 +514,6 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
       {
         $unwind: {
           path: "$time",
-          includeArrayIndex: "string",
           preserveNullAndEmptyArrays: true,
         },
       },
@@ -502,7 +522,9 @@ const getDashboardData = asyncHandler(async (req, res, next) => {
           name: {
             $concat: ["$firstName", " ", "$lastName"],
           },
-          time: { $ifNull: ["$time", {}] },
+          time: {
+            $ifNull: ["$time", {}],
+          },
           lastActive: 1,
           role: 1,
           avatar: 1,
@@ -532,12 +554,63 @@ const getAllEmployees = asyncHandler(async (req, res, next) => {
           name: {
             $concat: ["$firstName", " ", "$lastName"],
           },
+          role: 1,
+          config: 1,
         },
       },
     ]);
     res.json({
       message: "Success",
       data: users,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// @desc    Edit manager for manager
+// @route   patch /manager/:id
+// @access  Private
+const editManagerFor = asyncHandler(async (req, res, next) => {
+  try {
+    const managerId = req.params.id;
+    const { employeeId, assign } = req.body;
+
+    const manager = await User.findById(managerId);
+    if (!manager) {
+      res.status(404);
+      throw new Error("User not found");
+    }
+
+    // check for valid employee
+    const newEmployee = await User.findById(employeeId);
+    if (!newEmployee) {
+      res.status(404);
+      throw new Error("No such employee found");
+    }
+
+    if (assign)
+      await User.updateOne(
+        { _id: managerId },
+        {
+          $addToSet: {
+            managerFor: employeeId,
+          },
+        }
+      );
+    else
+      await User.updateOne(
+        { _id: managerId },
+        {
+          $pull: {
+            managerFor: employeeId,
+          },
+        }
+      );
+
+    res.json({
+      message: "Success",
+      data: manager,
     });
   } catch (e) {
     next(e);
@@ -552,4 +625,5 @@ export {
   getEmployeeDetails,
   getDashboardData,
   getAllEmployees,
+  editManagerFor,
 };

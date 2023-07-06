@@ -14,7 +14,7 @@ const screenshotSchema = new mongoose.Schema({
   project: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Project",
-    required: true,
+    default: null,
   },
   activityId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -35,7 +35,10 @@ const screenshotSchema = new mongoose.Schema({
     default: "",
   },
   activityAt: {
-    type: Date,
+    type: String,
+  },
+  takenAt: {
+    type: String,
   },
   performanceData: {
     type: Number,

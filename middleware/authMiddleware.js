@@ -24,6 +24,7 @@ const authPass = asyncHandler(async (req, res, next) => {
 
     // 2) Verification token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("decoded", decoded);
     if (!decoded) {
       res.status(400);
       throw new Error("Incorrect JWT");

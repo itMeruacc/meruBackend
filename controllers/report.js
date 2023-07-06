@@ -15,7 +15,7 @@ import puppeteer from "puppeteer";
 import { v4 as uuidv4 } from "uuid";
 
 // @desc    Generate Report
-// @route   GET /report
+// @route   POST /report
 // @access  Private
 
 const generateReport = asyncHandler(async (req, res) => {
@@ -23,30 +23,77 @@ const generateReport = asyncHandler(async (req, res) => {
     let { clientIds, projectIds, userIds, dateOne, dateTwo, groupBy } =
       req.body;
 
+    // simply string ids to mongo ids
     if (projectIds) {
       projectIds = projectIds.map((id) => {
+        if (!id._id) return null;
         return mongoose.Types.ObjectId(id._id);
       });
     }
     if (userIds) {
       userIds = userIds.map((id) => {
+        if (!id._id) return null;
         return mongoose.Types.ObjectId(id._id);
       });
     }
     if (clientIds) {
       clientIds = clientIds.map((id) => {
+        if (id._id === null) return null;
         return mongoose.Types.ObjectId(id._id);
       });
     }
 
-    // console.log(clientIds, projectIds, userIds, dateOne, dateTwo);
-
+    // js dates, use new Date() in mongo to convert it to mongo dates
     if (!dateOne) dateOne = new Date(1970);
     if (!dateTwo) dateTwo = new Date();
 
-    // let user;
-    // if (userId) user = await User.findById(userId);
-    // else user = req.user;
+    // To calculate the no. of days between two dates
+    const Difference_In_Time =
+      new Date(dateTwo).getTime() - new Date(dateOne).getTime();
+    const diffDays = Difference_In_Time / (1000 * 3600 * 24);
+
+    let datePipelineId;
+    // needed coz bar graph in frontend cant take object for x axis
+    let datePipelineIdProject = {
+      $concat: [{ $toString: "$_id.month" }, "/", { $toString: "$_id.year" }],
+    };
+    if (diffDays > 31 && diffDays <= 120) {
+      // weekly
+      // console.log("weekly");
+      datePipelineId = { $week: "$activityOn" };
+      datePipelineIdProject = 1;
+    } else if (diffDays > 120 && diffDays <= 365) {
+      // monthly
+      // console.log("monthly");
+      datePipelineId = {
+        month: { $month: "$activityOn" },
+        year: { $year: "$activityOn" },
+      };
+    } else if (diffDays > 365) {
+      // yearly
+      // console.log("yearly");
+      datePipelineId = {
+        month: "month",
+        year: { $year: "$activityOn" },
+      };
+    } else {
+      // daily
+      // console.log("daily");
+      datePipelineId = {
+        day: { $dayOfMonth: "$activityOn" },
+        month: { $month: "$activityOn" },
+        year: { $year: "$activityOn" },
+      };
+      datePipelineIdProject = {
+        $concat: [
+          { $toString: "$_id.day" },
+          "/",
+          { $toString: "$_id.month" },
+          "/",
+          { $toString: "$_id.year" },
+        ],
+      };
+    }
 
     const activity = await Activity.aggregate([
       {
@@ -83,23 +130,30 @@ const generateReport = asyncHandler(async (req, res) => {
               {
                 $and: [
                   {
-                    $ne: ["$activityOn", ""],
+                    $gte: ["$activityOn", new Date(dateOne.toString())],
                   },
                   {
-                    $ne: ["$activityOn", "null"],
-                  },
-                  {
-                    $ne: ["$activityOn", null],
-                  },
-                  {
-                    $gte: ["$activityOn", dateOne],
-                  },
-                  {
-                    $lte: ["$activityOn", dateTwo],
+                    $lte: ["$activityOn", new Date(dateTwo.toString())],
                   },
                 ],
               },
             ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          week: {
+            $week: "$activityOn",
+          },
+          month: {
+            $month: "$activityOn",
+          },
+          year: {
+            $year: "$activityOn",
+          },
+          consumeTime: {
+            $subtract: ["$endTime", "$startTime"],
           },
         },
       },
@@ -326,11 +380,13 @@ const generateReport = asyncHandler(async (req, res) => {
             {
               $unwind: {
                 path: "$client",
+                preserveNullAndEmptyArrays: true,
               },
             },
             {
               $unwind: {
                 path: "$project",
+                preserveNullAndEmptyArrays: true,
               },
             },
 
@@ -437,7 +493,7 @@ const generateReport = asyncHandler(async (req, res) => {
           byDates: [
             {
               $group: {
-                _id: "$activityOn",
+                _id: datePipelineId,
                 internal: {
                   $sum: { $cond: ["$isInternal", "$consumeTime", 0] },
                 },
@@ -462,7 +518,7 @@ const generateReport = asyncHandler(async (req, res) => {
             { $sort: { _id: 1 } },
             {
               $project: {
-                _id: 1,
+                _id: datePipelineIdProject,
                 actCount: 1,
                 internal: 1,
                 external: 1,
@@ -496,6 +552,7 @@ const generateReport = asyncHandler(async (req, res) => {
             {
               $unwind: {
                 path: "$client",
+                preserveNullAndEmptyArrays: true,
               },
             },
             {
@@ -509,6 +566,7 @@ const generateReport = asyncHandler(async (req, res) => {
             {
               $unwind: {
                 path: "$project",
+                preserveNullAndEmptyArrays: true,
               },
             },
             {
@@ -742,6 +800,7 @@ const generateReport = asyncHandler(async (req, res) => {
 const saveReports = asyncHandler(async (req, res) => {
   try {
     let {
+      cronString,
       scheduleEmail,
       schedule,
       scheduleType,
@@ -755,15 +814,16 @@ const saveReports = asyncHandler(async (req, res) => {
       includeApps,
       options,
     } = req.body;
+
     // very inefficient coz not proper default values in frontend
-    if (!scheduleType[1]) {
-      if (scheduleType[0] === "Weekly") {
-        scheduleType[1] = "Monday";
-      }
-      if (scheduleType[0] === "Monthly") {
-        scheduleType[1] = 1;
-      }
-    }
+    // if (!scheduleType[1]) {
+    //   if (scheduleType[0] === "Weekly") {
+    //     scheduleType[1] = "Monday";
+    //   }
+    //   if (scheduleType[0] === "Monthly") {
+    //     scheduleType[1] = 1;
+    //   }
+    // }
 
     // if (!options.userIds) {
     //   options.userIds = "All Employees";
@@ -791,6 +851,7 @@ const saveReports = asyncHandler(async (req, res) => {
 
     // make a new document for reports schema
     const saved = await Reports.create({
+      cronString,
       schedule,
       scheduleType,
       scheduleEmail,
@@ -880,7 +941,7 @@ const fetchReports = asyncHandler(async (req, res) => {
 
     res.json({
       status: report[0].share ? "Report fetched" : "403",
-      report: report[0].share ? data : "403",
+      reports: report[0].share ? data : "403",
       data: report[0].share ? report : "403",
     });
   } catch (error) {

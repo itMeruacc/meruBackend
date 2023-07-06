@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Activity from "../models/activity.js";
 import User from "../models/user.js";
 import Project from "../models/project.js";
@@ -5,7 +6,6 @@ import Client from "../models/client.js";
 import Screenshot from "../models/screenshot.js";
 import asyncHandler from "express-async-handler";
 import dayjs from "dayjs";
-import Mongoose from "mongoose";
 
 // @desc    Add a new activity
 // @route   POST /activity
@@ -14,6 +14,7 @@ const createActivity = asyncHandler(async (req, res) => {
   try {
     // get input
     const {
+      note,
       clientId,
       projectId,
       task,
@@ -28,6 +29,7 @@ const createActivity = asyncHandler(async (req, res) => {
     let today = activityOn ? activityOn : new Date();
 
     const activity = await Activity.create({
+      note,
       employee: employeeId,
       client: clientId,
       project: projectId,
@@ -123,7 +125,7 @@ const createScreenShot = asyncHandler(async (req, res) => {
 const getActivities = asyncHandler(async (req, res, next) => {
   try {
     // typically for a month
-    const { startTime, endTime, userId } = req.body;
+    const { startTime, endTime, userId, hello } = req.body;
     let user = await User.findById(userId);
 
     if (!user) {
@@ -131,11 +133,22 @@ const getActivities = asyncHandler(async (req, res, next) => {
         message: "No user found",
       });
     }
+    ``;
 
     // match activities from the users activities and for a full month
     const activities = await Activity.aggregate([
       {
-        $match: {},
+        $match: {
+          $and: [
+            { employee: mongoose.Types.ObjectId(userId) },
+            {
+              activityOn: {
+                $gte: new Date(startTime.toString()),
+                $lte: new Date(endTime.toString()),
+              },
+            },
+          ],
+        },
       },
       {
         $lookup: {
@@ -158,6 +171,22 @@ const getActivities = asyncHandler(async (req, res, next) => {
           path: "$project",
           includeArrayIndex: "string",
           preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          "project._id": 1,
+          "project.name": 1,
+          screenshots: 1,
+          screenshots: 1,
+          startTime: 1,
+          endTime: 1,
+          consumeTime: { $subtract: ["$endTime", "$startTime"] },
+          activityOn: 1,
+          isInternal: 1,
+          isAccepted: 1,
+          performanceData: 1,
+          note: 1,
         },
       },
     ]);
@@ -209,9 +238,8 @@ const updateActivity = asyncHandler(async (req, res) => {
 // @access  Private
 const deleteActivity = asyncHandler(async (req, res) => {
   try {
-    // get input
     const { activityId } = req.body;
-
+    console.log(activityId);
     // check for activity
     let activity = await Activity.findById(activityId);
     if (!activity) {
@@ -244,11 +272,11 @@ const deleteActivity = asyncHandler(async (req, res) => {
         },
       }
     );
-    await Screenshot.deleteMany({ _id: { $in: activity.screenShots } });
+    await Screenshot.deleteMany({ _id: { $in: activity.screenshots } });
     activity = await Activity.findByIdAndDelete(activityId);
 
     res.status(200).json({
-      status: "Successfully deleted the activity",
+      status: "Successfully deleted activity",
     });
   } catch (error) {
     throw new Error(error);
@@ -260,35 +288,58 @@ const deleteActivity = asyncHandler(async (req, res) => {
 // @access  Private
 const deleteScreenshot = asyncHandler(async (req, res) => {
   try {
-    const screenshots = req.body;
-    for (let i = 0; i < array.length; i++) {
-      const screenshotId = array[i].screenshotId;
-      const activityId = array[i].activityId;
+    const { screenshotId } = req.body;
+    // screenshots.forEach(async (screenshotId) => {
+    //   const screenshot = await Screenshot.findById(screenshotId);
+    //   if (screenshot) {
+    //     // get del time and subtract from endTime and pull ss form act
+    //     const delTime = screenshot.consumeTime ?? 0;
 
-      const screenshot = await Screenshot.findById(screenshotId);
-      if (!screenshot) {
-        res.status(404);
-        throw new Error(`${screenshotId} not found`);
+    //     const activity = await Activity.findById(screenshot.activityId);
+    //     activity.consumeTime = activity.consumeTime - delTime;
+
+    //     await Activity.updateOne(
+    //       { _id: screenshot.activityId },
+    //       {
+    //         $pull: {
+    //           screenshots: screenshotId,
+    //         },
+    //       },
+    //       {
+    //         $set: {
+    //           endTime: { $subtract: ["$endTime", delTime] },
+    //         },
+    //       }
+    //     );
+    //     await activity.save();
+
+    //     // del ss
+    //     await Screenshot.findByIdAndDelete(screenshotId);
+    //   }
+    // });
+
+    const screenshot = await Screenshot.findById(screenshotId);
+    if (!screenshot) throw new Error("Screenshot not found", 404);
+
+    await Activity.updateOne(
+      { _id: screenshot.activityId },
+      {
+        $pull: {
+          screenshots: screenshotId,
+        },
       }
+      // {
+      //   $set: {
+      //     endTime: { $subtract: ["$endTime", delTime] },
+      //   },
+      // }
+    );
 
-      const delTime = screenshot.consumeTime ? screenshot.consumeTime : 0;
+    // del ss
+    await Screenshot.findByIdAndDelete(screenshotId);
 
-      const activity = await Activity.findById(activityId);
-      if (!screenshot) {
-        res.status(404);
-        throw new Error(`${activityId} not found`);
-      }
-
-      activity.consumeTime = activity.consumeTime - delTime;
-      activity.screenshots = activity.screenshots.filter(
-        (_id) => _id.toHexString() !== screenshotId
-      );
-      await activity.save();
-
-      await Screenshot.findByIdAndDelete(screenshotId);
-    }
     res.status(200).json({
-      status: "ok",
+      status: "Successfully deleted screenshots",
     });
   } catch (error) {
     throw new Error(error);
